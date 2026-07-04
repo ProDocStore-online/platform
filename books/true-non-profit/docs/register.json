@@ -1,0 +1,18 @@
+{
+  "book": "true-non-profit",
+  "version": "0.1",
+  "updated": "2026-07-05",
+  "scale": {
+    "minimum": 0,
+    "maximum": 100,
+    "bands": [
+      { "range": "90-100", "label": "True steward" },
+      { "range": "75-89", "label": "Mission-led operator" },
+      { "range": "60-74", "label": "Mixed but defensible" },
+      { "range": "40-59", "label": "Institution-first" },
+      { "range": "20-39", "label": "Mission-washed" },
+      { "range": "0-19", "label": "Extractive shell" }
+    ]
+  },
+  "organizations": []
+}

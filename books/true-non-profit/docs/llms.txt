@@ -1,0 +1,21 @@
+# True Non-Profit
+
+True Non-Profit is a public knowledge book about non-profits, public-benefit institutions, and the assessment of how true a non-profit is to its stated mission.
+
+Start here:
+
+- /books/true-non-profit/index.html
+- /books/true-non-profit/first-principles.html
+- /books/true-non-profit/trueness-scale.html
+- /books/true-non-profit/assessment-method.html
+- /books/true-non-profit/register.html
+- /books/true-non-profit/register.json
+- /books/true-non-profit/assessment-schema.json
+
+Core concept:
+
+The trueness of a non-profit is the distance between its formal non-profit status and its actual behavior as a mission-governed, public-benefit institution.
+
+Assessment status:
+
+The public register is a scaffold. Real organizations should not receive scores until an evidence file exists with public source links, method notes, and reviewer status.

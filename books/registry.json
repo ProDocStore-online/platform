@@ -1,0 +1,12 @@
+{
+  "books": [
+    {
+      "id": "true-non-profit",
+      "title": "True Non-Profit",
+      "description": "A first-principles body of knowledge about non-profits and a trueness assessment framework.",
+      "source": "books/true-non-profit/docs",
+      "publicPath": "/books/true-non-profit/",
+      "status": "draft-0.1"
+    }
+  ]
+}

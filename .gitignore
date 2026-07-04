@@ -15,6 +15,9 @@
 # Wrangler / Cloudflare local cache
 .wrangler/
 
+# Local GitHub Pages artifact preview
+_pages/
+
 # Dependencies (when extension is migrated)
 node_modules/
 

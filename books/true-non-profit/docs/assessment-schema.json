@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freedocstore.online/books/true-non-profit/assessment-schema.json",
+  "title": "True Non-Profit Assessment",
+  "type": "object",
+  "required": [
+    "organization",
+    "jurisdiction",
+    "status",
+    "assessmentPeriod",
+    "dimensions",
+    "totalScore",
+    "evidence"
+  ],
+  "properties": {
+    "organization": { "type": "string" },
+    "legalEntity": { "type": "string" },
+    "jurisdiction": { "type": "string" },
+    "website": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["not_assessed", "evidence_gathering", "draft_score", "reviewed", "disputed"]
+    },
+    "assessmentPeriod": { "type": "string" },
+    "totalScore": { "type": "number", "minimum": 0, "maximum": 100 },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "publicBenefitClarity",
+        "privateBenefitControl",
+        "governanceIndependence",
+        "financialTransparency",
+        "resourceAllocationToMission",
+        "evidenceOfOutcomes",
+        "accessAndFairness",
+        "accountabilityAndCorrection"
+      ],
+      "properties": {
+        "publicBenefitClarity": { "$ref": "#/$defs/dimension15" },
+        "privateBenefitControl": { "$ref": "#/$defs/dimension15" },
+        "governanceIndependence": { "$ref": "#/$defs/dimension15" },
+        "financialTransparency": { "$ref": "#/$defs/dimension15" },
+        "resourceAllocationToMission": { "$ref": "#/$defs/dimension15" },
+        "evidenceOfOutcomes": { "$ref": "#/$defs/dimension10" },
+        "accessAndFairness": { "$ref": "#/$defs/dimension10" },
+        "accountabilityAndCorrection": { "$ref": "#/$defs/dimension5" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "url", "note"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "reviewerNotes": { "type": "string" },
+    "openQuestions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "lastUpdated": { "type": "string" }
+  },
+  "$defs": {
+    "dimension15": { "$ref": "#/$defs/dimensionBase", "properties": { "score": { "maximum": 15 } } },
+    "dimension10": { "$ref": "#/$defs/dimensionBase", "properties": { "score": { "maximum": 10 } } },
+    "dimension5": { "$ref": "#/$defs/dimensionBase", "properties": { "score": { "maximum": 5 } } },
+    "dimensionBase": {
+      "type": "object",
+      "required": ["score", "reasoning"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0 },
+        "reasoning": { "type": "string" }
+      }
+    }
+  }
+}

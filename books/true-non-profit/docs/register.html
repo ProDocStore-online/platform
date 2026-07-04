@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assessment Register - True Non-Profit</title>
+  <meta name="description" content="The public register for True Non-Profit assessments." />
+  <meta name="source-repo" content="FreeDocStore/platform" />
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg" />
+  <link rel="stylesheet" href="../../styles.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap nav-inner">
+      <a href="../../index.html" class="nav-brand">FreeDocStore</a>
+      <div class="nav-links">
+        <a href="index.html">Book</a>
+        <a href="trueness-scale.html">Scale</a>
+        <a href="assessment-method.html">Method</a>
+        <a href="register.html">Register</a>
+        <a href="https://github.com/FreeDocStore/platform">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="book-hero">
+    <div class="wrap">
+      <span class="book-kicker">Public Register</span>
+      <h1>Assessment Register</h1>
+      <p>
+        The register will list non-profits, their trueness score, review status, evidence file, and last update.
+        It starts empty by design: no organization should be scored without evidence.
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap book-shell">
+    <aside class="book-sidebar">
+      <div class="book-sidebar-title">Book</div>
+      <a href="index.html">Start</a>
+      <a href="first-principles.html">First Principles</a>
+      <a href="trueness-scale.html">Trueness Scale</a>
+      <a href="assessment-method.html">Assessment Method</a>
+      <a href="register.html" class="active">Assessment Register</a>
+    </aside>
+
+    <article class="book-content">
+      <section>
+        <h2>Current Register</h2>
+        <p>
+          Machine-readable register data is available at <a href="register.json">register.json</a>.
+          Assessment records should conform to <a href="assessment-schema.json">assessment-schema.json</a>.
+        </p>
+        <table class="book-table">
+          <thead>
+            <tr>
+              <th>Organization</th>
+              <th>Jurisdiction</th>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>No scored organizations yet</strong></td>
+              <td>Global</td>
+              <td><span class="book-pill">Not assessed</span></td>
+              <td>Pending</td>
+              <td>Evidence files will be added before scores are published.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Candidate Categories</h2>
+        <p>
+          The register should eventually cover many kinds of non-profits, because failure modes differ by category.
+        </p>
+        <div class="book-grid">
+          <div class="book-card">
+            <h3>Human services</h3>
+            <p>Food, housing, crisis support, disability services, family support, and direct care organizations.</p>
+          </div>
+          <div class="book-card">
+            <h3>Health and research</h3>
+            <p>Medical charities, patient groups, research foundations, hospitals, and disease-specific organizations.</p>
+          </div>
+          <div class="book-card">
+            <h3>Education and culture</h3>
+            <p>Schools, museums, cultural trusts, libraries, scholarship funds, and public education bodies.</p>
+          </div>
+          <div class="book-card">
+            <h3>Advocacy and civic life</h3>
+            <p>Rights groups, policy institutes, civic infrastructure projects, watchdogs, and movement organizations.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Assessment File Template</h2>
+        <p>
+          Each organization should have a dedicated evidence page before it appears with a score.
+        </p>
+        <div class="book-card">
+          <pre><code>Organization:
+Legal entity:
+Jurisdiction:
+Assessment period:
+Website:
+Regulator profile:
+Annual report:
+Financials:
+
+Scores:
+- Public benefit clarity: /15
+- Private benefit control: /15
+- Governance independence: /15
+- Financial transparency: /15
+- Resource allocation to mission: /15
+- Evidence of outcomes: /10
+- Access and fairness: /10
+- Accountability and correction: /5
+
+Total:
+Status:
+Reviewer notes:
+Open questions:</code></pre>
+        </div>
+      </section>
+
+      <section>
+        <h2>Next Step</h2>
+        <p>
+          The next publishing milestone is to add the first real assessment candidate with sources,
+          leave it in <span class="book-pill warn">Evidence gathering</span>, and only publish a score after the evidence file is strong enough.
+        </p>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="footer-bottom">
+        <span>True Non-Profit</span>
+        <span><a href="index.html">Back to start</a></span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

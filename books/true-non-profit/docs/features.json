@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/features.schema.json",
+  "search": true,
+  "sitemap": true,
+  "pageMeta": true,
+  "nav": true,
+  "toc": true
+}

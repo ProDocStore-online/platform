@@ -1,0 +1,9 @@
+{
+  "items": [
+    { "href": "index.html", "label": "Start" },
+    { "href": "first-principles.html", "label": "First Principles" },
+    { "href": "trueness-scale.html", "label": "Trueness Scale" },
+    { "href": "assessment-method.html", "label": "Assessment Method" },
+    { "href": "register.html", "label": "Assessment Register" }
+  ]
+}

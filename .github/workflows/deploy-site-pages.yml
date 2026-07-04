@@ -1,10 +1,12 @@
-# Deploys site/ to GitHub Pages on every push to main that touches site/.
+# Deploys site/ plus books/*/docs to GitHub Pages on every push to main
+# that touches the public site or a published book.
 #
 # Requires:
 #   - Repo must be public (or on a paid plan that supports private Pages)
 #   - GitHub Pages enabled in Settings -> Pages -> Source: GitHub Actions
 #
-# The site/ directory is uploaded as-is. No build step, no transform.
+# The site/ directory is copied as-is. Each books/<slug>/docs directory is
+# copied to books/<slug>/ in the Pages artifact.
 
 name: Deploy site to GitHub Pages
 
@@ -13,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'books/**'
       - '.github/workflows/deploy-site-pages.yml'
   workflow_dispatch:
 
@@ -34,8 +37,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Assemble public artifact
+        run: |
+          set -euo pipefail
+          rm -rf _pages
+          mkdir -p _pages
+          cp -R site/. _pages/
+          if [ -d books ]; then
+            for docs_dir in books/*/docs; do
+              [ -d "$docs_dir" ] || continue
+              slug="$(basename "$(dirname "$docs_dir")")"
+              mkdir -p "_pages/books/$slug"
+              cp -R "$docs_dir"/. "_pages/books/$slug/"
+            done
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _pages
       - uses: actions/deploy-pages@v4
         id: deployment
