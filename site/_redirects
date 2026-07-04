@@ -1,0 +1,3 @@
+/books/true-non-profit https://true-non-profit.pages.dev/ 301
+/books/true-non-profit/ https://true-non-profit.pages.dev/ 301
+/books/true-non-profit/* https://true-non-profit.pages.dev/:splat 301
