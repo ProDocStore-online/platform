@@ -127,12 +127,12 @@ jobs:
       DEPLOY_DIR: ${{ inputs.deploy-dir }}
       PROTECT_SITE: ${{ inputs.email-domain != '' || inputs.allowed-emails != '' || inputs.client-emails != '' || inputs.client-domain != '' || inputs.office-cidrs != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # FreeDocStore/platform is public, so the shared-asset fetch needs no
       # authentication. Sparse-checkout pulls only the files we need.
       - name: Fetch FreeDocStore assets
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FreeDocStore/platform
           path: _playbook

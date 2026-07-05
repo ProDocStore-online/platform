@@ -27,14 +27,14 @@ jobs:
       run:
         working-directory: extension
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Need full history so generate-changelog test fixtures (used
           # in the test step below) can walk git logs in tmpdirs that
           # mirror the live repo.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
 

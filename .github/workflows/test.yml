@@ -22,7 +22,7 @@ jobs:
       run:
         working-directory: extension
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Tests include generate-changelog end-to-end cases that walk
           # real git history via initGitRepo in tmpdirs, plus docs-lint
@@ -31,7 +31,7 @@ jobs:
           # with the old pytest job in case future tests rely on blame/log.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
 

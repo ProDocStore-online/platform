@@ -47,12 +47,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # FreeDocStore/platform is public, so fetching the lint script needs
       # no authentication. Sparse-checkout pulls only what we need.
       - name: Check out FreeDocStore platform (for shared lint script)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FreeDocStore/platform
           ref: main
