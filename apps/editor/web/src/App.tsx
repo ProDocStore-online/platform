@@ -10,6 +10,7 @@ import {
   Github,
   Globe2,
   KeyRound,
+  LayoutDashboard,
   Loader2,
   PenLine,
   Plus,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  UserCircle,
 } from 'lucide-react'
 
 const app = initPro({ appId: 'freedocstore-editor' })
@@ -24,7 +26,7 @@ const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 const FDS_MCP = 'https://freedocstore-mcp.serge-the-dev.workers.dev/mcp'
 
-type Mode = 'publish' | 'edit'
+type AppRoute = 'dashboard' | 'publish' | 'edit' | 'profile'
 type StepState = 'idle' | 'busy' | 'ok' | 'error'
 
 interface Settings {
@@ -181,6 +183,16 @@ function nextAvailableSlug(kbs: KnowledgeBaseDraft[], desired: string) {
   return `${base}-${Date.now()}`
 }
 
+function routeFromHash(): AppRoute {
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  return raw === 'publish' || raw === 'edit' || raw === 'profile' ? raw : 'dashboard'
+}
+
+function setHashRoute(route: AppRoute) {
+  const next = route === 'dashboard' ? '#/' : `#/${route}`
+  if (window.location.hash !== next) window.location.hash = next
+}
+
 function App() {
   return (
     <ProShell app={app} appName="FreeDocStore Editor" allowFree showThemeToggle>
@@ -191,7 +203,7 @@ function App() {
 
 function EditorApp() {
   const { user } = useAuth(app)
-  const [mode, setMode] = useState<Mode>('publish')
+  const [route, setRoute] = useState<AppRoute>(() => routeFromHash())
   const [settings, setSettings] = useState<Settings>(emptySettings)
   const [kbs, setKbs] = useState<KnowledgeBaseDraft[]>(() => [createKnowledgeBase(starterPublish)])
   const [activeKbId, setActiveKbId] = useState('')
@@ -208,6 +220,18 @@ function EditorApp() {
   const files = activeKb?.files ?? []
   const steps = activeKb?.steps ?? cloneSteps()
   const liveUrl = activeKb?.liveUrl ?? ''
+
+  useEffect(() => {
+    const syncRoute = () => setRoute(routeFromHash())
+    window.addEventListener('hashchange', syncRoute)
+    syncRoute()
+    return () => window.removeEventListener('hashchange', syncRoute)
+  }, [])
+
+  function navigate(route: AppRoute) {
+    setRoute(route)
+    setHashRoute(route)
+  }
 
   useEffect(() => {
     const saved = parseStoredJson<Partial<Settings>>(sessionStorage.getItem('fds-editor-settings'))
@@ -311,7 +335,7 @@ function EditorApp() {
     })
     setKbs((current) => [next, ...current])
     setActiveKbId(next.id)
-    setMode('publish')
+    navigate('publish')
     setActivePreview('files')
     setStatus('New KB draft ready')
   }
@@ -326,7 +350,7 @@ function EditorApp() {
     })
     setKbs((current) => [copy, ...current])
     setActiveKbId(copy.id)
-    setMode('publish')
+    navigate('publish')
     setActivePreview('files')
     setStatus('KB draft duplicated')
   }
@@ -458,15 +482,25 @@ function EditorApp() {
     }
   }
 
+  const pageTitle = {
+    dashboard: 'FreeDocStore Editor',
+    publish: 'Publish a knowledge base',
+    edit: 'Edit Markdown with AI',
+    profile: 'Profile and connections',
+  }[route]
+  const pageCopy = {
+    dashboard: 'Manage your knowledge-base drafts, launch new books, and track published targets.',
+    publish: 'Generate a GitHub-backed documentation repo, deploy it to Cloudflare Pages, and attach a custom domain.',
+    edit: 'Load an existing Markdown file, ask for a replacement draft, and apply the change through GitHub.',
+    profile: 'Review your PAS account and the browser-held tokens used for publishing.',
+  }[route]
+
   return (
     <main className="app-shell">
       <header className="workspace-head">
         <div>
-          <p className="eyebrow">Zensical only</p>
-          <h1>Prompt and publish knowledge bases.</h1>
-          <p className="lede">
-            Create a Markdown repo, generate a Zensical book, push it to GitHub, and let Cloudflare Pages publish it.
-          </p>
+          <h1>{pageTitle}</h1>
+          <p className="lede">{pageCopy}</p>
         </div>
         <div className="status-block" aria-live="polite">
           <span className={busy ? 'pulse-dot busy' : 'pulse-dot'} />
@@ -478,38 +512,28 @@ function EditorApp() {
         </div>
       </header>
 
-      <section className="modebar" aria-label="Editor modes">
-        <button className={mode === 'publish' ? 'mode active' : 'mode'} onClick={() => setMode('publish')} type="button">
-          <Rocket size={17} />
-          Publish KB
-        </button>
-        <button className={mode === 'edit' ? 'mode active' : 'mode'} onClick={() => setMode('edit')} type="button">
-          <PenLine size={17} />
-          Edit Markdown
-        </button>
-        <a className="mode link-mode" href={FDS_MCP} target="_blank" rel="noreferrer">
-          <ShieldCheck size={17} />
-          MCP
-        </a>
-      </section>
+      <AppNav route={route} navigate={navigate} />
 
-      <div className="workspace-grid">
-        <section className="panel control-panel">
-          {mode === 'publish' && (
-            <KnowledgeBaseShelf
-              kbs={kbs}
-              activeId={activeKb?.id ?? ''}
-              onSelect={(id) => {
-                setActiveKbId(id)
-                setActivePreview('files')
-              }}
-              onCreate={createNewKb}
-              onDuplicate={duplicateActiveKb}
-              onDelete={deleteActiveKb}
-            />
-          )}
-          <SettingsPanel settings={settings} setSettings={setSettings} />
-          {mode === 'publish' ? (
+      {route === 'dashboard' ? (
+        <DashboardPage
+          kbs={kbs}
+          activeId={activeKb?.id ?? ''}
+          onSelect={(id) => {
+            setActiveKbId(id)
+            setActivePreview('files')
+            navigate('publish')
+          }}
+          onCreate={createNewKb}
+          onDuplicate={duplicateActiveKb}
+          onDelete={deleteActiveKb}
+          onPublish={() => navigate('publish')}
+          onEdit={() => navigate('edit')}
+        />
+      ) : route === 'publish' ? (
+        <div className="workspace-grid">
+          <section className="panel control-panel">
+            <SelectedKbHeader kb={activeKb} onBack={() => navigate('dashboard')} />
+            <SettingsPanel settings={settings} setSettings={setSettings} compact />
             <PublishPanel
               form={publishForm}
               setForm={updateActiveForm}
@@ -519,7 +543,16 @@ function EditorApp() {
               onPublish={publishToGitHub}
               liveUrl={liveUrl}
             />
-          ) : (
+          </section>
+          <section className="panel preview-panel">
+            <PreviewTabs active={activePreview} setActive={setActivePreview} hasProposal={!!proposal} publish />
+            <FilesPreview files={files} summary={generatedSummary} />
+          </section>
+        </div>
+      ) : route === 'edit' ? (
+        <div className="workspace-grid">
+          <section className="panel control-panel">
+            <SettingsPanel settings={settings} setSettings={setSettings} compact />
             <EditPanel
               form={editForm}
               setForm={setEditForm}
@@ -528,22 +561,113 @@ function EditorApp() {
               onAsk={askForEditProposal}
               proposal={proposal}
             />
-          )}
-        </section>
-
-        <section className="panel preview-panel">
-          <PreviewTabs mode={mode} active={activePreview} setActive={setActivePreview} hasProposal={!!proposal} />
-          {mode === 'publish' ? (
-            <FilesPreview files={files} summary={generatedSummary} />
-          ) : (
+          </section>
+          <section className="panel preview-panel">
+            <PreviewTabs active={activePreview} setActive={setActivePreview} hasProposal={!!proposal} />
             <EditPreview active={activePreview} source={source} proposal={proposal} diff={diff} path={editForm.path} />
-          )}
-        </section>
-      </div>
+          </section>
+        </div>
+      ) : (
+        <ProfilePage
+          user={user}
+          settings={settings}
+          setSettings={setSettings}
+          kbs={kbs}
+        />
+      )}
       <footer className="pas-footer">
         Built for <a href="https://proappstore.online" target="_blank" rel="noreferrer">proappstore.online</a>
       </footer>
     </main>
+  )
+}
+
+function AppNav({ route, navigate }: { route: AppRoute; navigate: (route: AppRoute) => void }) {
+  return (
+    <nav className="app-nav" aria-label="Editor pages">
+      <button className={route === 'dashboard' ? 'mode active' : 'mode'} onClick={() => navigate('dashboard')} type="button">
+        <LayoutDashboard size={17} />
+        Dashboard
+      </button>
+      <button className={route === 'publish' ? 'mode active' : 'mode'} onClick={() => navigate('publish')} type="button">
+        <Rocket size={17} />
+        Publish
+      </button>
+      <button className={route === 'edit' ? 'mode active' : 'mode'} onClick={() => navigate('edit')} type="button">
+        <PenLine size={17} />
+        Edit
+      </button>
+      <button className={route === 'profile' ? 'mode active' : 'mode'} onClick={() => navigate('profile')} type="button">
+        <UserCircle size={17} />
+        Profile
+      </button>
+      <a className="mode link-mode" href={FDS_MCP} target="_blank" rel="noreferrer">
+        <ShieldCheck size={17} />
+        MCP
+      </a>
+    </nav>
+  )
+}
+
+function DashboardPage({
+  kbs,
+  activeId,
+  onSelect,
+  onCreate,
+  onDuplicate,
+  onDelete,
+  onPublish,
+  onEdit,
+}: {
+  kbs: KnowledgeBaseDraft[]
+  activeId: string
+  onSelect: (id: string) => void
+  onCreate: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onPublish: () => void
+  onEdit: () => void
+}) {
+  const published = kbs.filter((kb) => kb.liveUrl || kb.repoUrl).length
+  return (
+    <div className="dashboard-grid">
+      <section className="panel">
+        <KnowledgeBaseShelf
+              kbs={kbs}
+          activeId={activeId}
+          onSelect={onSelect}
+          onCreate={onCreate}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        />
+      </section>
+      <section className="panel">
+        <div className="section-block">
+          <div className="section-title">
+            <LayoutDashboard size={18} />
+            <div>
+              <h2>Workspace</h2>
+              <p>Drafts and published targets for this browser session.</p>
+            </div>
+          </div>
+          <div className="metric-grid">
+            <div><span>Drafts</span><strong>{kbs.length}</strong></div>
+            <div><span>Published</span><strong>{published}</strong></div>
+            <div><span>Selected</span><strong>{kbs.find((kb) => kb.id === activeId)?.slug ?? 'None'}</strong></div>
+          </div>
+          <div className="action-row">
+            <button className="primary-action" type="button" onClick={onPublish}>
+              <Rocket size={17} />
+              Open publisher
+            </button>
+            <button className="secondary-action" type="button" onClick={onEdit}>
+              <PenLine size={17} />
+              Edit existing docs
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -615,17 +739,47 @@ function KnowledgeBaseShelf({
   )
 }
 
-function SettingsPanel({ settings, setSettings }: { settings: Settings; setSettings: (s: Settings) => void }) {
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings({ ...settings, [key]: value })
+function SelectedKbHeader({ kb, onBack }: { kb: KnowledgeBaseDraft; onBack: () => void }) {
   return (
-    <div className="section-block">
-      <div className="section-title">
-        <KeyRound size={18} />
-        <div>
-          <h2>Session keys</h2>
-          <p>Stored in this browser session. Needed for self-serve publishing.</p>
-        </div>
+    <div className="section-block selected-kb">
+      <button className="text-action" type="button" onClick={onBack}>
+        Dashboard
+      </button>
+      <div>
+        <span>Selected knowledge base</span>
+        <strong>{kb.title || 'Untitled KB'}</strong>
+        <p>{kb.owner}/{kb.slug}</p>
       </div>
+    </div>
+  )
+}
+
+function SettingsPanel({
+  settings,
+  setSettings,
+  compact = false,
+}: {
+  settings: Settings
+  setSettings: (s: Settings) => void
+  compact?: boolean
+}) {
+  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings({ ...settings, [key]: value })
+  const connectedCount = [
+    settings.githubToken,
+    settings.openaiKey,
+    settings.cloudflareAccountId && settings.cloudflareApiToken,
+  ].filter(Boolean).length
+  return (
+    <details className="section-block settings-details" open={!compact || connectedCount < 3}>
+      <summary>
+        <span className="summary-title">
+          <KeyRound size={18} />
+          <span>
+            <strong>Connections</strong>
+            <small>{connectedCount}/3 ready. Stored only in this browser session.</small>
+          </span>
+        </span>
+      </summary>
       <div className="field-grid two">
         <Field label="GitHub token" value={settings.githubToken} onChange={(v) => update('githubToken', v)} secret placeholder="ghp_..." />
         <Field label="OpenAI API key" value={settings.openaiKey} onChange={(v) => update('openaiKey', v)} secret placeholder="sk-..." />
@@ -634,6 +788,53 @@ function SettingsPanel({ settings, setSettings }: { settings: Settings; setSetti
         <Field label="OpenAI endpoint" value={settings.openaiEndpoint} onChange={(v) => update('openaiEndpoint', v)} />
         <Field label="Model" value={settings.model} onChange={(v) => update('model', v)} />
       </div>
+    </details>
+  )
+}
+
+function ProfilePage({
+  user,
+  settings,
+  setSettings,
+  kbs,
+}: {
+  user: unknown
+  settings: Settings
+  setSettings: (settings: Settings) => void
+  kbs: KnowledgeBaseDraft[]
+}) {
+  const name = readUserField(user, 'name') || readUserField(user, 'login') || 'Signed-in user'
+  const email = readUserField(user, 'email')
+  const id = readUserField(user, 'id') || readUserField(user, 'sub')
+  return (
+    <div className="profile-grid">
+      <section className="panel">
+        <div className="section-block profile-card">
+          <div className="avatar-mark">{name.slice(0, 1).toUpperCase()}</div>
+          <div>
+            <h2>{name}</h2>
+            <p>{email || 'Authenticated with ProAppStore'}</p>
+            {id && <small>Account ID: {id}</small>}
+          </div>
+        </div>
+        <div className="section-block">
+          <div className="section-title">
+            <UserCircle size={18} />
+            <div>
+              <h2>Account</h2>
+              <p>PAS manages sign-in and subscription status for this app.</p>
+            </div>
+          </div>
+          <div className="metric-grid">
+            <div><span>Drafts</span><strong>{kbs.length}</strong></div>
+            <div><span>App</span><strong>FreeDocStore</strong></div>
+            <div><span>Plan</span><strong>Pro</strong></div>
+          </div>
+        </div>
+      </section>
+      <section className="panel">
+        <SettingsPanel settings={settings} setSettings={setSettings} />
+      </section>
     </div>
   )
 }
@@ -789,17 +990,17 @@ function EditPanel({
 }
 
 function PreviewTabs({
-  mode,
   active,
   setActive,
   hasProposal,
+  publish = false,
 }: {
-  mode: Mode
   active: 'files' | 'source' | 'proposal' | 'diff'
   setActive: (tab: 'files' | 'source' | 'proposal' | 'diff') => void
   hasProposal: boolean
+  publish?: boolean
 }) {
-  if (mode === 'publish') {
+  if (publish) {
     return (
       <div className="preview-tabs">
         <button className="preview-tab active" type="button" onClick={() => setActive('files')}>
@@ -1202,6 +1403,12 @@ function parseStoredJson<T>(value: string | null): T | null {
   } catch {
     return null
   }
+}
+
+function readUserField(user: unknown, field: string) {
+  if (!user || typeof user !== 'object') return ''
+  const value = (user as Record<string, unknown>)[field]
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
 }
 
 function slugify(value: string) {
