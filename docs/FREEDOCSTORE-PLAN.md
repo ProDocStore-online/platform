@@ -90,7 +90,7 @@ Do not mix these into the Free MVP except where shared abstractions are obvious.
 
 ## First Implementation Milestones
 
-1. Productize the Glassdocs scaffold as FreeDocStore.
+1. Keep the FreeDocStore platform productized under FreeDocStore ownership.
 2. Add a public KB registry JSON file and render it on the site.
 3. Add one example KB import/publish workflow.
 4. Make the AI editor able to open a PR, not only copy/open GitHub.

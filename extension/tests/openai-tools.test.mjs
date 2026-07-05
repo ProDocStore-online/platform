@@ -35,7 +35,7 @@ function baseContext(overrides = {}) {
     url: "https://docs.example.com/",
     title: "Playbook",
     sourcePath: "docs/index.html",
-    repo: { owner: "Glassdocs", name: "glassdocs" },
+    repo: { owner: "FreeDocStore", name: "freedocstore" },
     html: "",
     text: "",
     navConfig: null,
@@ -94,7 +94,7 @@ test("capText truncates head+tail with marker over the cap", () => {
 test("siteIdentifier returns owner/repo when repo is known", () => {
   assert.equal(
     siteIdentifier(baseContext()),
-    "Glassdocs/glassdocs",
+    "FreeDocStore/freedocstore",
   );
 });
 
@@ -148,7 +148,7 @@ test("list_pages: with navConfig flattens navItems and computes otherPages", asy
   const result = JSON.parse(
     await dispatch({ id: "x", name: "list_pages", args: {} }),
   );
-  assert.equal(result.site, "Glassdocs/glassdocs");
+  assert.equal(result.site, "FreeDocStore/freedocstore");
   assert.equal(result.currentPage, "docs/index.html");
   assert.deepEqual(result.navItems, [
     { path: "docs/components.html", label: "Components", parent: null },

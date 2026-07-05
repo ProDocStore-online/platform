@@ -2,7 +2,7 @@
 // Generate docs/changelog.html from git history.
 //
 // Project-agnostic: auto-detects project name and site chrome from
-// docs/index.html via lib/chrome.mjs. Runs locally or via the Glassdocs
+// docs/index.html via lib/chrome.mjs. Runs locally or via the FreeDocStore
 // reusable workflow.
 //
 // Usage:

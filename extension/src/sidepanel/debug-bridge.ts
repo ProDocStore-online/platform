@@ -39,8 +39,7 @@ export function applyDebugSettings(debug: Settings["debug"]): void {
  * Fire-and-forget a debug event to the local sink, if configured. Best
  * effort by design: a missing/closed collector must never affect the
  * chat UI, so every failure is swallowed. keepalive lets late events
- * (e.g. during panel close) still flush. See settings.debug.sinkUrl and
- * tools/debug-mcp/.
+ * (e.g. during panel close) still flush. See settings.debug.sinkUrl.
  */
 export function postDebug(kind: string, payload: unknown): void {
   const url = debugSinkUrl;
@@ -55,7 +54,7 @@ export function postDebug(kind: string, payload: unknown): void {
     );
     void fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-glassdocs-debug": "1" },
+      headers: { "Content-Type": "application/json", "x-freedocstore-debug": "1" },
       body,
       keepalive: true,
     }).catch(() => {});

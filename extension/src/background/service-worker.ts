@@ -4,7 +4,7 @@
 import { getAdapter } from "../adapters/base";
 import { loadStoredSettings, patchStoredSettings } from "../settings";
 import { GitHubClient } from "../lib/github";
-import { persistConversation } from "../lib/glassdocs-chat";
+import { persistConversation } from "../lib/freedocstore-chat";
 import { applyPendingProposal } from "../adapters/proposal-engine";
 import { loadPendingProposal, removePendingProposal } from "../lib/proposals";
 import { isValidRepoPath } from "../adapters/openai-tools";
@@ -18,9 +18,9 @@ const saveSettings = patchStoredSettings;
 
 // ── Debug bridge (service-worker side) ──────────────────────────────
 // Mirrors background events - adapter request/response, commit results,
-// errors - to settings.debug.sinkUrl so a watcher (e.g. the glassdocs
-// debug MCP collector) sees what the SW does, not just the side panel's
-// view. Cached sink URL refreshed on settings change; best-effort.
+// errors - to settings.debug.sinkUrl so a local debug collector sees what
+// the SW does, not just the side panel's view. Cached sink URL refreshed on
+// settings change; best-effort.
 // Only ever holds a LOOPBACK url (validated on assignment); a remote value
 // is treated as disabled so diagnostics can't be exfiltrated off-box.
 let debugSinkUrl: string | null = null;
@@ -42,7 +42,7 @@ function swDebug(payload: Record<string, unknown>): void {
     );
     void fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-glassdocs-debug": "1" },
+      headers: { "Content-Type": "application/json", "x-freedocstore-debug": "1" },
       body,
       keepalive: true,
     }).catch(() => {});

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/Glassdocs/glassdocs/main/templates/features.schema.json",
+  "$id": "https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/features.schema.json",
   "title": "Docs Playbook feature flags",
   "description": "Opt-in toggles for deploy-time injectors and generators. Drop a features.json into docs/ and the reusable workflow reads it in place of per-feature workflow inputs. Missing keys fall through to the YAML-input default (so old repos keep working).",
   "type": "object",

@@ -36,16 +36,16 @@ prompt -> proposal -> diff -> GitHub commit/PR
 
 Manual edits happen in GitHub.
 
-## Current Seed
+## Current State
 
-This platform was scaffolded from the Glassdocs codebase. Keep useful engine internals, but product-facing copy should say FreeDocStore.
+This platform is the FreeDocStore-owned knowledge-base publishing monorepo. Keep useful engine internals, but product-facing copy should say FreeDocStore.
 
 Important inherited pieces:
 
 - `extension/` has the mature Chrome side-panel proposal workflow.
 - `site/editor.html` is the lightweight AI-first web workbench.
 - `templates/` has reusable docs generation and lint tooling.
-- `docs/` still contains many Glassdocs-era engine docs and should be rewritten as FreeDocStore docs over time.
+- `docs/` contains product and engine docs and should stay aligned with the Zensical-only publishing direction.
 
 ## Architecture Direction
 
@@ -74,8 +74,8 @@ npm test
 
 ## Near-Term Work
 
-1. Replace the remaining Glassdocs docs with FreeDocStore product docs.
+1. Keep the product docs aligned with the FreeDocStore publishing model.
 2. Add a registry model for public knowledge bases.
-3. Add a build/publish path for Zensical and static Markdown docs.
+3. Add a build/publish path for Zensical Markdown docs.
 4. Decide Cloudflare hosting topology.
 5. Then create the ProDocStore plan for private customer/staff KBs.

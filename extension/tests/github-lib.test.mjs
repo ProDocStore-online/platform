@@ -182,7 +182,7 @@ test("getDefaultBranch returns name + SHA", async () => {
 test("ensureBranch: returns the branch unchanged when it already exists", async () => {
   let createCalled = false;
   const { restore } = installFetchMock({
-    "GET /repos/foo/bar/git/ref/heads/glassdocs-chat": () => ({ body: { object: { sha: "existing" } } }),
+    "GET /repos/foo/bar/git/ref/heads/freedocstore-chat": () => ({ body: { object: { sha: "existing" } } }),
     "POST /repos/foo/bar/git/refs": () => { createCalled = true; return { body: {} }; },
   });
   try {
@@ -190,8 +190,8 @@ test("ensureBranch: returns the branch unchanged when it already exists", async 
       adapter: "openai",
       claude: { apiKey: "", model: "", githubToken: "ghp_test" },
     });
-    const b = await client.ensureBranch("foo", "bar", "glassdocs-chat");
-    assert.equal(b, "glassdocs-chat");
+    const b = await client.ensureBranch("foo", "bar", "freedocstore-chat");
+    assert.equal(b, "freedocstore-chat");
     assert.equal(createCalled, false, "must not create a branch that already exists");
   } finally {
     restore();
@@ -201,7 +201,7 @@ test("ensureBranch: returns the branch unchanged when it already exists", async 
 test("ensureBranch: creates the branch from default HEAD on 404", async () => {
   let created = null;
   const { restore } = installFetchMock({
-    "GET /repos/foo/bar/git/ref/heads/glassdocs-chat": () => ({ status: 404, body: { message: "Not Found" } }),
+    "GET /repos/foo/bar/git/ref/heads/freedocstore-chat": () => ({ status: 404, body: { message: "Not Found" } }),
     "GET /repos/foo/bar": () => ({ body: { default_branch: "main" } }),
     "GET /repos/foo/bar/git/ref/heads/main": () => ({ body: { object: { sha: "mainSha" } } }),
     "POST /repos/foo/bar/git/refs": ({ body }) => { created = JSON.parse(body); return { body: {} }; },
@@ -211,9 +211,9 @@ test("ensureBranch: creates the branch from default HEAD on 404", async () => {
       adapter: "openai",
       claude: { apiKey: "", model: "", githubToken: "ghp_test" },
     });
-    const b = await client.ensureBranch("foo", "bar", "glassdocs-chat");
-    assert.equal(b, "glassdocs-chat");
-    assert.deepEqual(created, { ref: "refs/heads/glassdocs-chat", sha: "mainSha" });
+    const b = await client.ensureBranch("foo", "bar", "freedocstore-chat");
+    assert.equal(b, "freedocstore-chat");
+    assert.deepEqual(created, { ref: "refs/heads/freedocstore-chat", sha: "mainSha" });
   } finally {
     restore();
   }

@@ -14,11 +14,11 @@ import { sendToBg } from "../lib/messaging";
 // injections, so this flag survives and we register listeners exactly once.
 declare global {
   interface Window {
-    __glassdocsInjected?: boolean;
+    __freedocstoreInjected?: boolean;
   }
 }
-const alreadyInjected = window.__glassdocsInjected === true;
-window.__glassdocsInjected = true;
+const alreadyInjected = window.__freedocstoreInjected === true;
+window.__freedocstoreInjected = true;
 
 type RepoRef = { owner: string; name: string } | null;
 
@@ -145,7 +145,7 @@ function currentSelection(): SelectionPayload | null {
 function ensureFloatBtn(): HTMLButtonElement {
   if (floatBtn) return floatBtn;
   const btn = document.createElement("button");
-  btn.id = "glassdocs-edit-btn";
+  btn.id = "freedocstore-edit-btn";
   btn.type = "button";
   btn.textContent = "✎ Ask / Edit";
   btn.style.cssText = [
@@ -230,7 +230,7 @@ async function getPageContext(): Promise<PageContext> {
   // it survives the clone and would otherwise concatenate its label into
   // the page text we send the model in read mode. (The marker/highlight hosts
   // are closed shadow roots - their content isn't cloned - so they don't leak.)
-  clone.querySelectorAll("script, style, nav, #glassdocs-edit-btn").forEach((n) => n.remove());
+  clone.querySelectorAll("script, style, nav, #freedocstore-edit-btn").forEach((n) => n.remove());
   const text = (clone.textContent ?? "").replace(/\s+/g, " ").trim();
   // Resolve the repo up front so both fetches share the fallback target.
   const shell = resolveContext(location.href, html, text, document.title);

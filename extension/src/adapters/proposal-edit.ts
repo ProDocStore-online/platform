@@ -293,7 +293,7 @@ export async function buildCreatePageProposalPreview(
   await upsertTask(task);
 
   const stored = await loadPendingProposal(proposalId);
-  // Menu tip depends on how the site builds its nav. HTML (Glassdocs) sites use
+  // Menu tip depends on how the site builds its nav. HTML (FreeDocStore) sites use
   // docs/nav.json (editable via update_nav_config). Markdown (MkDocs/Zensical/
   // Docusaurus) sites drive the menu from the generator's config or auto-nav -
   // which docs-chat can't edit (it's outside docs/), so don't send the user

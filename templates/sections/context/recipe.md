@@ -34,7 +34,7 @@ The page that explains **who the work is for, why it exists now, and what the wo
 - **The team starts asking "why are we still doing this?"** - the answer should already be on this page. If it is not, the page needs an update.
 - **A new contributor reads it and is confused** - their confusion is data. Update the page for the next person.
 
-## Glassdocs-specific notes
+## FreeDocStore-specific notes
 
 - Render as a single `context.html` in `docs/`. Should be one of the first entries in the topbar nav - it is the orientation doc.
 - Link to it from the Requirements page (the *what* references the *why*) and from the Architecture page (the *how* references the *why*).

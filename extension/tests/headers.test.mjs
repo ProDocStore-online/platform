@@ -1,6 +1,6 @@
 // Regression tests for the deploy-time HTTP headers + CSP. These are
 // the headers Cloudflare Pages applies to every response on every
-// Glassdocs-derived site.
+// FreeDocStore-derived site.
 //
 // Why this file exists: a stale CSP missing 'wasm-unsafe-eval' shipped
 // on the playbook for an unknown amount of time, silently blocking
@@ -72,7 +72,7 @@ test("templates/_headers carries the CSP directives Pagefind WASM requires", () 
 });
 
 test("templates/_headers keeps the universal hardening headers", () => {
-  // These are non-negotiable for any Glassdocs site. Catches the
+  // These are non-negotiable for any FreeDocStore site. Catches the
   // case where someone trims the headers file thinking they're unused.
   const text = readHeaders(TEMPLATE_HEADERS);
   for (const required of [

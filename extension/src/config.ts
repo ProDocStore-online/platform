@@ -6,7 +6,7 @@
 // own docs call it out.
 
 /**
- * Client ID of the public-facing Glassdocs GitHub App. Public users
+ * Client ID of the public-facing FreeDocStore GitHub App. Public users
  * sign in through this App and get tokens scoped to whatever repos
  * they grant.
  *

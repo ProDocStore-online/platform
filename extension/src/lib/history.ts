@@ -42,7 +42,7 @@ export function scopeFromContext(ctx: PageContext | null): Scope {
  * Inverse of the `repo:` branch of scopeFromContext. Returns the owner +
  * name for a repo-backed scope, or null for origin/no-context scopes (which
  * have no repo to persist conversation logs into). Used by the side panel to
- * decide whether a conversation can be mirrored to `.glassdocs/chat/` in the
+ * decide whether a conversation can be mirrored to `.freedocstore/chat/` in the
  * backing repo.
  */
 export function repoFromScope(scope: Scope): { owner: string; name: string } | null {

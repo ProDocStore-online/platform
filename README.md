@@ -14,11 +14,11 @@ Users describe what should change. The AI drafts the change. The user reviews th
 
 - Product site in `site/`.
 - AI-first web workbench at `site/editor.html`.
-- PAS-hosted React editor app in `apps/editor/`.
+- FreeDocStore-owned React editor app in `apps/editor/`.
 - Remote MCP Worker in `workers/mcp/`.
 - Browser extension in `extension/` for editing published docs pages from the side panel.
 - Reusable docs templates, deploy workflows, generators, and lint rules in `templates/`.
-- Existing Glassdocs engine code used as the starting point for GitHub-backed proposal, PR, and extension workflows.
+- GitHub-backed proposal, PR, and extension workflows inherited from the seed engine and kept under FreeDocStore ownership.
 - KB publishing supports Zensical-format Markdown repos only for now.
 
 ## Local Preview
@@ -77,9 +77,9 @@ Do not build Pro-only private access into FreeDocStore first. Keep the Free plat
 
 ```text
 site/                 Public FreeDocStore marketing site and AI web editor
-apps/editor/          PAS-hosted React app for prompt-to-KB publishing
+apps/editor/          FreeDocStore-owned React app for prompt-to-KB publishing
 workers/mcp/          Cloudflare Worker remote MCP server
-docs/                 Product/engine docs copied from the Glassdocs seed
+docs/                 Product and engine docs
 extension/            MV3 Chrome extension for AI-first docs editing
 templates/            Reusable docs templates, add-ons, lint, and generators
 brand/                Brand assets inherited from the seed repo
@@ -89,6 +89,15 @@ brand/                Brand assets inherited from the seed repo
 ## Published Knowledge Bases
 
 Each knowledge base is its own GitHub repository. The platform registry records the repo, Zensical source layout, Cloudflare Pages project, production URL, and any custom domains.
+
+Local checkouts follow the same store convention as FAS and FGS: each published KB repo is checked out beside `platform`, not inside it.
+
+```text
+~/dev/stores/fdocs/
+  platform/           FreeDocStore platform monorepo
+  true-non-profit/    Published KB repo: FreeDocStore/true-non-profit
+  <kb-slug>/          Future published KB repos
+```
 
 The first KB is `FreeDocStore/true-non-profit`:
 
@@ -113,13 +122,13 @@ Current MCP tools are public/read and planning tools: list KBs, inspect register
 
 Authenticated write tools come next: create KB repo, update Markdown files, register custom domains, and publish from prompt.
 
-## PAS Editor
+## Editor
 
-The production editor is a PAS app:
+The production editor is a FreeDocStore app:
 
 - Source: `apps/editor/`
-- Production: <https://freedocstore-editor.proappstore.online>
-- Deploy target: `pas-apps/apps/freedocstore-editor/` in PAS R2
+- Production: <https://freedocstore-editor.pages.dev/>
+- Deploy target: Cloudflare Pages project `freedocstore-editor`
 
 The editor supports multiple KB drafts in one browser, one GitHub repo per KB, Zensical-only Markdown source, Cloudflare Pages publishing, and optional custom domains per KB.
 

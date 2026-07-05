@@ -2,7 +2,7 @@
 // Package the extension into a CWS-uploadable zip.
 //
 // Pipeline: read manifest version -> run the production build -> zip
-// dist/ minus source maps -> write to dist-zip/glassdocs-v{version}.zip
+// dist/ minus source maps -> write to dist-zip/freedocstore-v{version}.zip
 //
 // The same zip serves two distribution paths:
 //   1. Chrome Web Store upload (unlisted listing)
@@ -78,7 +78,7 @@ function packageZip(version) {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
-  const outName = `glassdocs-v${version}.zip`;
+  const outName = `freedocstore-v${version}.zip`;
   const outPath = path.join(OUT_DIR, outName);
 
   // Overwrite any prior zip for the same version so re-runs are idempotent.

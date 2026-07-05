@@ -219,8 +219,8 @@ export async function persistHistory(): Promise<void> {
   postDebug("conversation", { scope: state.currentScope, messageCount: slim.length, messages: slim });
 }
 
-// Debounced mirror of the active conversation into .glassdocs/chat/ in the
-// backing repo (see lib/glassdocs-chat.ts). chrome.storage.local is the live
+// Debounced mirror of the active conversation into .freedocstore/chat/ in the
+// backing repo (see lib/freedocstore-chat.ts). chrome.storage.local is the live
 // buffer; this is the durable, shareable copy in git.
 //
 // Debounced because persistHistory fires on every appended message (user turn,

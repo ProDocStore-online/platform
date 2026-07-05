@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    uses: Glassdocs/glassdocs/.github/workflows/deploy-pages.yml@main
+    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: {{PROJECT_NAME}}
       # fetch-brand-assets is true by default - styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers are injected automatically

@@ -49,7 +49,7 @@ const SOURCE_EXT = /\.(html?|mdx?|markdown)$/i;
 /**
  * Source language of a file, by extension. Drives the editing prompt
  * (Markdown vs HTML) and the grounding code-fence. Everything that isn't
- * a recognised Markdown extension is treated as HTML (the glassdocs
+ * a recognised Markdown extension is treated as HTML (the FreeDocStore
  * default), so hand-authored docs/*.html keep their existing behaviour.
  */
 export function sourceFormatOf(path: string): "html" | "markdown" {

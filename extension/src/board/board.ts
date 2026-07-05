@@ -27,7 +27,7 @@ const syncBtn = $<HTMLButtonElement>("#sync-btn");
 
 let repoFilter = "";
 let personFilter = "";
-// Teammates' tasks pulled from the repo mirror (.glassdocs/tasks/*.json),
+// Teammates' tasks pulled from the repo mirror (.freedocstore/tasks/*.json),
 // merged with the local store on render. Populated by syncRemote(); empty
 // until the first sync completes so the board shows instantly from local.
 let remoteTasks: Task[] = [];

@@ -1,4 +1,4 @@
-# Glassdocs section library
+# FreeDocStore section library
 
 Recipes, templates, and AI prompts for the standard sections of a project knowledge base. Pick the sections that fit your project type, drop the templates into your `docs/`, and use the prompts to have an AI tool produce the first draft.
 
@@ -72,7 +72,7 @@ These ship when the project warrants them - not every project needs every sectio
 1. **Decide your section set** for the project type. For a software dev KB, the 14 sections above are the recommended baseline.
 2. **Copy the templates** you want into your project's `docs/` folder. Rename to match your nav (or leave as-is).
 3. **Run the prompts** against your AI tool of choice. Pass the prompt + any project material you have (briefs, transcripts, prior docs, code). The AI produces a first draft.
-4. **Read, curate, approve.** The draft is never the final - you are the editor. The point of Glassdocs is the team approves what ships, not the AI.
+4. **Read, curate, approve.** The draft is never the final - you are the editor. The point of FreeDocStore is the team approves what ships, not the AI.
 5. **Cross-pollinate.** Once the glossary and context sections are stable, pass them as additional context when prompting other sections. AI output gets noticeably more accurate when grounded in the project's existing vocabulary and motivation.
 6. **Re-read on the maintenance signals** the recipe lists. Most sections need a refresh when scope, architecture, or stakeholders change.
 
@@ -97,7 +97,7 @@ The section set draws from established practice rather than inventing new conven
 | Runbook | Google SRE Book |
 | Reports | SQA practice (coverage, dependency scans, etc.) |
 
-The synthesis - bundling these into a coherent set, organising by SDLC phase, providing AI-tuned prompts for each - is Glassdocs's contribution. The components are all real.
+The synthesis - bundling these into a coherent set, organising by SDLC phase, providing AI-tuned prompts for each - is FreeDocStore's contribution. The components are all real.
 
 ## Guiding principles
 

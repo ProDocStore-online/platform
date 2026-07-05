@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for the Glassdocs add-on catalog. Read by the Glassdocs extension (system prompt + Options UI). Add-ons are toggled ONLY by the chat agent - never edit features.json by hand. See .github/VISION.md.",
+  "_comment": "Single source of truth for the FreeDocStore add-on catalog. Read by the FreeDocStore extension (system prompt + Options UI). Add-ons are toggled ONLY by the chat agent - never edit features.json by hand. See .github/VISION.md.",
   "addOns": [
     {
       "key": "search",

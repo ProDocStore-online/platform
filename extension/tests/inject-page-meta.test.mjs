@@ -67,7 +67,7 @@ test('detectGithubRepo parses common remote URL formats', () => {
     ['git@github.com:Owner/Repo', 'Owner/Repo'],
     ['https://github.com/Owner/Repo.git', 'Owner/Repo'],
     ['https://github.com/Owner/Repo', 'Owner/Repo'],
-    ['https://github.com/Glassdocs/glassdocs.git', 'Glassdocs/glassdocs'],
+    ['https://github.com/FreeDocStore/freedocstore.git', 'FreeDocStore/freedocstore'],
     ['ssh://git@github.com/Owner/Repo.git', 'Owner/Repo'],
   ];
   for (const [url, expected] of cases) {

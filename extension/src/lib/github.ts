@@ -418,7 +418,7 @@ export class GitHubClient {
     // pagination) is only worth the code if this actually hits.
     if (body.truncated) {
       console.warn(
-        `[glassdocs] listDocsHtml: GitHub tree for ${owner}/${repo}@${branch} was truncated; some pages may be missing from the list`,
+        `[freedocstore] listDocsHtml: GitHub tree for ${owner}/${repo}@${branch} was truncated; some pages may be missing from the list`,
       );
     }
     return (body.tree ?? [])
@@ -444,7 +444,7 @@ export class GitHubClient {
     };
     if (body.truncated) {
       console.warn(
-        `[glassdocs] listRepoFiles: GitHub tree for ${owner}/${repo}@${branch} was truncated; some files may be missing from the list`,
+        `[freedocstore] listRepoFiles: GitHub tree for ${owner}/${repo}@${branch} was truncated; some files may be missing from the list`,
       );
     }
     return (body.tree ?? [])

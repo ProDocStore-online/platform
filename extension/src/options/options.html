@@ -96,14 +96,14 @@
         <small>
           The 🗑 button in the side panel clears the chat on <strong>this
           device only</strong>. Conversations are also mirrored to your repo at
-          <code>.glassdocs/chat/history.json</code> on the
-          <code>glassdocs-chat</code> branch (so teammates and Claude Code see
+          <code>.freedocstore/chat/history.json</code> on the
+          <code>freedocstore-chat</code> branch (so teammates and Claude Code see
           the same context). To remove that copy, do it in GitHub:
         </small>
         <ul class="hint-list">
-          <li>Delete <code>.glassdocs/chat/history.json</code> on the
-            <code>glassdocs-chat</code> branch (a new commit), or</li>
-          <li>Delete the whole <code>glassdocs-chat</code> branch to drop all of
+          <li>Delete <code>.freedocstore/chat/history.json</code> on the
+            <code>freedocstore-chat</code> branch (a new commit), or</li>
+          <li>Delete the whole <code>freedocstore-chat</code> branch to drop all of
             it, including past versions retained in that branch's git history.</li>
         </ul>
         <small>Note: deleting the file leaves earlier versions in the branch's
@@ -211,7 +211,7 @@
     <section class="tab-panel" data-panel="addons" hidden>
       <fieldset>
         <legend>Available add-ons</legend>
-        <p>Things Glassdocs can do for you. <strong>Don't edit anything by hand</strong> - ask the Glassdocs agent in the side panel to enable or disable any of these on the current site.</p>
+        <p>Things FreeDocStore can do for you. <strong>Don't edit anything by hand</strong> - ask the FreeDocStore agent in the side panel to enable or disable any of these on the current site.</p>
         <ul id="addons-list" class="addons-list"><li>Loading&hellip;</li></ul>
         <small>Examples: <em>"enable search on this site"</em>, <em>"turn off the changelog"</em>, <em>"what add-ons does this site have on?"</em></small>
       </fieldset>
@@ -243,7 +243,7 @@
           <small>
             When set, the side panel streams diagnostic events and the live
             conversation to this <strong>local</strong> endpoint (e.g. the
-            glassdocs debug bridge). <strong>Must be loopback</strong>
+            local debug bridge). <strong>Must be loopback</strong>
             (<code>localhost</code> / <code>127.0.0.1</code>); a remote URL is
             ignored. Token-shaped secrets are scrubbed before sending. Off by
             default.

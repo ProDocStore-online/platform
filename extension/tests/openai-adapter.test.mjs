@@ -55,7 +55,7 @@ const CONTEXT = {
   url: "https://docs.example.com/",
   title: "Hello",
   sourcePath: SOURCE_PATH,
-  repo: { owner: "Glassdocs", name: "glassdocs" },
+  repo: { owner: "FreeDocStore", name: "freedocstore" },
   html: HTML,
   text: "Hello",
   navConfig: null,

@@ -1,4 +1,4 @@
-// Operator → chat reverse channel: lets the debug MCP bridge drive the panel
+// Operator → chat reverse channel: lets a local debug bridge drive the panel
 // (inject a prompt, or apply/cancel a pending preview) for scripted testing.
 // Extracted from sidepanel.ts. Self-contained: it drives the real form + real
 // preview buttons (so the whole normal flow runs) and reads its poll target
@@ -34,11 +34,9 @@ function maybeSubmitInject(): void {
   formEl.requestSubmit();
 }
 
-// Perform an apply/cancel command queued via the debug MCP (apply_edit /
-// cancel_edit). We drive the REAL button so the whole resolvePreview flow runs
-// (in-flight feedback, history update, status advance) - the MCP client then
-// reads the result via get_conversation. Targets a specific proposalId when
-// given, else the latest pending preview on screen.
+// Perform an apply/cancel command queued by a local debug collector. We drive
+// the REAL button so the whole resolvePreview flow runs. Targets a specific
+// proposalId when given, else the latest pending preview on screen.
 function handleInjectCommand(cmd: { kind?: string; proposalId?: string }): void {
   // Thread-switch commands let a headless driver reach the edit flow without a
   // manual ✎ click: switch to a fresh edit thread (or back to read-only Ask),
@@ -80,7 +78,7 @@ async function pollInjectQueue(): Promise<void> {
   // just try to flush the staged one (e.g. once the in-flight turn ends).
   if (pendingInject || state.sending) { maybeSubmitInject(); return; }
   try {
-    const resp = await fetch(`${base}/pending`, { headers: { "x-glassdocs-debug": "1" } });
+    const resp = await fetch(`${base}/pending`, { headers: { "x-freedocstore-debug": "1" } });
     if (!resp.ok) return;
     const data = (await resp.json()) as {
       prompts?: string[];

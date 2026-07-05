@@ -5,7 +5,7 @@ static doc site under `TheRocketLab`. It uses
 [Pagefind](https://pagefind.app) - a wasm-based static-site search
 library - built in CI by the shared deploy workflow.
 
-Live examples: any Glassdocs-deployed site with search enabled.
+Live examples: any FreeDocStore-deployed site with search enabled.
 
 ## What you get
 
@@ -25,9 +25,9 @@ Assuming `docs/` is your deploy directory:
 
 ```sh
 mkdir -p docs/scripts
-curl -fsSL https://raw.githubusercontent.com/Glassdocs/glassdocs/main/templates/search/package.json     -o docs/package.json
-curl -fsSL https://raw.githubusercontent.com/Glassdocs/glassdocs/main/templates/search/scripts/add-heading-ids.mjs -o docs/scripts/add-heading-ids.mjs
-curl -fsSL https://raw.githubusercontent.com/Glassdocs/glassdocs/main/templates/search/.gitignore       -o docs/.gitignore
+curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/package.json     -o docs/package.json
+curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/scripts/add-heading-ids.mjs -o docs/scripts/add-heading-ids.mjs
+curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/.gitignore       -o docs/.gitignore
 ```
 
 Then update the `name` field in `docs/package.json` and generate the lockfile:
@@ -56,7 +56,7 @@ to the reusable workflow:
 ```yaml
 jobs:
   deploy:
-    uses: Glassdocs/glassdocs/.github/workflows/deploy-pages.yml@main
+    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: your-pages-project
       fetch-brand-assets: true
@@ -136,7 +136,7 @@ The `.page-meta` styles for the footer block live in the shared
 
 ## Customizing
 
-- **Theme**: edit `.site-search` in the Glassdocs `docs/styles.css`. Every
+- **Theme**: edit `.site-search` in the FreeDocStore `docs/styles.css`. Every
   site that fetches the shared stylesheet picks up the change automatically.
 - **Hotkey**: edit the inline init script in `snippet.html`.
 - **Result count, fuzziness, etc.**: see the
