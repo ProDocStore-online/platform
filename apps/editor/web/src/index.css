@@ -297,6 +297,60 @@ h1 {
   line-height: 1.35;
 }
 
+.connection-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.connection-badge {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+}
+
+.connection-badge.ready {
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--surface));
+}
+
+.connection-badge.needs-setup,
+.connection-badge.error {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+
+.connection-badge.checking {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+
+.connection-badge span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.connection-badge strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.connection-badge p,
+.connection-detail {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.connection-detail {
+  margin-bottom: 12px;
+}
+
 .section-title {
   display: flex;
   gap: 10px;
@@ -790,6 +844,10 @@ h1 {
 
   .field-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .connection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .target-grid {

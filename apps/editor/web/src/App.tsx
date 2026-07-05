@@ -25,17 +25,24 @@ const app = initPro({ appId: 'freedocstore-editor' })
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 const FDS_MCP = 'https://freedocstore-mcp.serge-the-dev.workers.dev/mcp'
+const CONFIG_KEY = 'fds:config:v1'
+const KBS_KEY = 'fds:kbs:v1'
+const ACTIVE_KB_KEY = 'fds:active-kb:v1'
 
 type AppRoute = 'dashboard' | 'publish' | 'edit' | 'profile'
 type StepState = 'idle' | 'busy' | 'ok' | 'error'
+type ConnectionState = 'unchecked' | 'checking' | 'ready' | 'needs-setup' | 'error'
 
 interface Settings {
-  githubToken: string
-  openaiKey: string
   openaiEndpoint: string
   model: string
-  cloudflareAccountId: string
-  cloudflareApiToken: string
+}
+
+interface PlatformConnections {
+  github: ConnectionState
+  openai: ConnectionState
+  cloudflare: ConnectionState
+  detail: string
 }
 
 interface PublishForm {
@@ -84,12 +91,15 @@ interface KnowledgeBaseDraft extends PublishForm {
 }
 
 const emptySettings: Settings = {
-  githubToken: '',
-  openaiKey: '',
   openaiEndpoint: DEFAULT_ENDPOINT,
   model: DEFAULT_MODEL,
-  cloudflareAccountId: '',
-  cloudflareApiToken: '',
+}
+
+const initialConnections: PlatformConnections = {
+  github: 'unchecked',
+  openai: 'unchecked',
+  cloudflare: 'ready',
+  detail: 'Cloudflare deploy credentials are expected to live in platform/org secrets, not KB drafts.',
 }
 
 const starterPublish: PublishForm = {
@@ -114,7 +124,7 @@ const initialSteps: PublishStep[] = [
   { id: 'ai', label: 'Draft', detail: 'Generate Markdown files', state: 'idle' },
   { id: 'repo', label: 'Repo', detail: 'Create GitHub repository', state: 'idle' },
   { id: 'files', label: 'Files', detail: 'Commit Zensical source', state: 'idle' },
-  { id: 'secrets', label: 'Secrets', detail: 'Set Cloudflare secrets', state: 'idle' },
+  { id: 'secrets', label: 'Platform', detail: 'Use stored Cloudflare deploy connection', state: 'idle' },
   { id: 'deploy', label: 'Deploy', detail: 'GitHub Actions publishes to Cloudflare', state: 'idle' },
 ]
 
@@ -206,6 +216,8 @@ function EditorApp() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromHash())
   const [settings, setSettings] = useState<Settings>(emptySettings)
   const [kbs, setKbs] = useState<KnowledgeBaseDraft[]>(() => [createKnowledgeBase(starterPublish)])
+  const [platformLoaded, setPlatformLoaded] = useState(false)
+  const [connections, setConnections] = useState<PlatformConnections>(initialConnections)
   const [activeKbId, setActiveKbId] = useState('')
   const [editForm, setEditForm] = useState<EditForm>(starterEdit)
   const [source, setSource] = useState('')
@@ -234,7 +246,7 @@ function EditorApp() {
   }
 
   useEffect(() => {
-    const saved = parseStoredJson<Partial<Settings>>(sessionStorage.getItem('fds-editor-settings'))
+    const saved = parseStoredJson<Partial<Settings>>(localStorage.getItem('fds-editor-settings'))
     if (saved) setSettings({ ...emptySettings, ...saved })
     const savedKbs = parseStoredJson<unknown>(localStorage.getItem('fds-kb-drafts'))
     if (savedKbs) {
@@ -258,20 +270,56 @@ function EditorApp() {
   }, [])
 
   useEffect(() => {
+    if (!user) {
+      setPlatformLoaded(false)
+      return
+    }
+    let cancelled = false
+    async function loadPlatformState() {
+      try {
+        const [savedSettings, savedKbs, savedActive] = await Promise.all([
+          app.kv.get<Partial<Settings>>(CONFIG_KEY),
+          app.kv.get<KnowledgeBaseDraft[]>(KBS_KEY),
+          app.kv.get<string>(ACTIVE_KB_KEY),
+        ])
+        if (cancelled) return
+        if (savedSettings) setSettings({ ...emptySettings, ...savedSettings })
+        if (Array.isArray(savedKbs) && savedKbs.length) {
+          const normalized = savedKbs.map(normalizeKnowledgeBase)
+          setKbs(normalized)
+          setActiveKbId(normalized.some((kb) => kb.id === savedActive) ? savedActive || normalized[0].id : normalized[0].id)
+        }
+        setStatus('Loaded platform workspace')
+      } catch (error) {
+        if (!cancelled) setStatus(`Platform workspace unavailable: ${messageOf(error)}`)
+      } finally {
+        if (!cancelled) setPlatformLoaded(true)
+      }
+    }
+    loadPlatformState()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  useEffect(() => {
     if (kbs[0] && (!activeKbId || !kbs.some((kb) => kb.id === activeKbId))) setActiveKbId(kbs[0].id)
   }, [activeKbId, kbs])
 
   useEffect(() => {
-    sessionStorage.setItem('fds-editor-settings', JSON.stringify(settings))
-  }, [settings])
+    localStorage.setItem('fds-editor-settings', JSON.stringify(settings))
+    if (user && platformLoaded) app.kv.set(CONFIG_KEY, settings).catch((error) => setStatus(`Could not save platform settings: ${messageOf(error)}`))
+  }, [platformLoaded, settings, user])
 
   useEffect(() => {
     localStorage.setItem('fds-kb-drafts', JSON.stringify(kbs))
-  }, [kbs])
+    if (user && platformLoaded) app.kv.set(KBS_KEY, kbs).catch((error) => setStatus(`Could not save platform KBs: ${messageOf(error)}`))
+  }, [kbs, platformLoaded, user])
 
   useEffect(() => {
     if (activeKbId) localStorage.setItem('fds-active-kb', activeKbId)
-  }, [activeKbId])
+    if (user && platformLoaded && activeKbId) app.kv.set(ACTIVE_KB_KEY, activeKbId).catch(() => {})
+  }, [activeKbId, platformLoaded, user])
 
   useEffect(() => {
     localStorage.setItem('fds-edit-draft', JSON.stringify(editForm))
@@ -374,6 +422,7 @@ function EditorApp() {
     setKbPatch(kbId, { lastStatus: 'Generating files' })
     try {
       validatePublishForm(form)
+      validatePlatformAccess(user)
       validateAi(settings)
       setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
       setKbSteps(kbId, updateStep('ai', 'busy', 'Asking AI for source files'))
@@ -403,6 +452,7 @@ function EditorApp() {
       let readyFiles = activeKb.files
       if (!readyFiles.length) {
         validatePublishForm(form)
+        validatePlatformAccess(user)
         validateAi(settings)
         setKbSteps(kbId, resetSteps('plan', 'busy'))
         setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
@@ -414,22 +464,18 @@ function EditorApp() {
       }
       validatePublishForm(form)
       validateKbFiles(readyFiles)
-      validateGitHub(settings)
-      validateCloudflare(settings)
+      validatePlatformAccess(user)
 
       setKbSteps(kbId, updateStep('repo', 'busy', 'Creating repository'))
-      const repo = await createRepo(settings.githubToken, form)
+      const repo = await createRepo(form)
       setKbSteps(kbId, updateStep('repo', 'ok', repo.html_url))
       setKbPatch(kbId, { repoUrl: repo.html_url })
 
       setKbSteps(kbId, updateStep('files', 'busy', 'Writing files to main'))
-      await writeFiles(settings.githubToken, repo.full_name, readyFiles)
+      await writeFiles(repo.full_name, readyFiles)
       setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed`))
 
-      setKbSteps(kbId, updateStep('secrets', 'busy', 'Saving Cloudflare secrets'))
-      await putGitHubSecret(settings.githubToken, repo.full_name, 'CLOUDFLARE_ACCOUNT_ID', settings.cloudflareAccountId)
-      await putGitHubSecret(settings.githubToken, repo.full_name, 'CLOUDFLARE_API_TOKEN', settings.cloudflareApiToken)
-      setKbSteps(kbId, updateStep('secrets', 'ok', 'Repository secrets configured'))
+      setKbSteps(kbId, updateStep('secrets', 'ok', 'Using stored platform/org deploy secrets'))
 
       const url = liveTargetFor(form)
       setKbPatch(kbId, { liveUrl: url, lastStatus: 'Published' })
@@ -449,8 +495,8 @@ function EditorApp() {
     setBusy(true)
     setStatus('Loading source')
     try {
-      validateGitHub(settings)
-      const content = await readGitHubFile(settings.githubToken, editForm.repo, editForm.path, editForm.branch)
+      validatePlatformAccess(user)
+      const content = await readGitHubFile(editForm.repo, editForm.path, editForm.branch)
       setSource(content)
       setProposal(null)
       setDiff('Source loaded. Ask AI for a proposal.')
@@ -467,8 +513,9 @@ function EditorApp() {
     setBusy(true)
     setStatus('Asking AI for proposal')
     try {
+      validatePlatformAccess(user)
       validateAi(settings)
-      const current = source || (await readGitHubFile(settings.githubToken, editForm.repo, editForm.path, editForm.branch))
+      const current = source || (await readGitHubFile(editForm.repo, editForm.path, editForm.branch))
       setSource(current)
       const next = await generateEditProposal(settings, editForm, current)
       setProposal(next)
@@ -492,8 +539,41 @@ function EditorApp() {
     dashboard: 'Manage your knowledge-base drafts, launch new books, and track published targets.',
     publish: 'Generate a GitHub-backed documentation repo, deploy it to Cloudflare Pages, and attach a custom domain.',
     edit: 'Load an existing Markdown file, ask for a replacement draft, and apply the change through GitHub.',
-    profile: 'Review your PAS account and the browser-held tokens used for publishing.',
+    profile: 'Review your PAS account and platform-held publishing connections.',
   }[route]
+
+  async function checkConnections() {
+    setConnections({ ...initialConnections, github: 'checking', openai: 'checking' })
+    setStatus('Checking platform connections')
+    try {
+      validatePlatformAccess(user)
+      const github = await app.proxy.fetch('api.github.com/user', { headers: githubHeaders() })
+      const openai = await app.proxy.fetch(proxyTarget(settings.openaiEndpoint), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: settings.model,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: 'Return JSON only.' },
+            { role: 'user', content: '{"ok":true}' },
+          ],
+        }),
+      })
+      setConnections({
+        github: github.ok ? 'ready' : 'needs-setup',
+        openai: openai.ok ? 'ready' : 'needs-setup',
+        cloudflare: 'ready',
+        detail: openai.ok && github.ok
+          ? 'Platform connections are ready for repo creation and AI generation.'
+          : `GitHub ${github.status}; OpenAI ${openai.status}. Configure PAS app secrets or user vault keys.`,
+      })
+      setStatus(github.ok && openai.ok ? 'Platform connections ready' : 'Some platform connections need setup')
+    } catch (error) {
+      setConnections({ github: 'error', openai: 'error', cloudflare: 'ready', detail: messageOf(error) })
+      setStatus(messageOf(error))
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -533,7 +613,7 @@ function EditorApp() {
         <div className="workspace-grid">
           <section className="panel control-panel">
             <SelectedKbHeader kb={activeKb} onBack={() => navigate('dashboard')} />
-            <SettingsPanel settings={settings} setSettings={setSettings} compact />
+            <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={checkConnections} compact />
             <PublishPanel
               form={publishForm}
               setForm={updateActiveForm}
@@ -552,7 +632,7 @@ function EditorApp() {
       ) : route === 'edit' ? (
         <div className="workspace-grid">
           <section className="panel control-panel">
-            <SettingsPanel settings={settings} setSettings={setSettings} compact />
+            <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={checkConnections} compact />
             <EditPanel
               form={editForm}
               setForm={setEditForm}
@@ -572,6 +652,8 @@ function EditorApp() {
           user={user}
           settings={settings}
           setSettings={setSettings}
+          connections={connections}
+          onCheck={checkConnections}
           kbs={kbs}
         />
       )}
@@ -757,38 +839,67 @@ function SelectedKbHeader({ kb, onBack }: { kb: KnowledgeBaseDraft; onBack: () =
 function SettingsPanel({
   settings,
   setSettings,
+  connections,
+  onCheck,
   compact = false,
 }: {
   settings: Settings
   setSettings: (s: Settings) => void
+  connections: PlatformConnections
+  onCheck: () => void
   compact?: boolean
 }) {
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings({ ...settings, [key]: value })
-  const connectedCount = [
-    settings.githubToken,
-    settings.openaiKey,
-    settings.cloudflareAccountId && settings.cloudflareApiToken,
-  ].filter(Boolean).length
+  const connectedCount = [connections.github, connections.openai, connections.cloudflare].filter((state) => state === 'ready').length
   return (
     <details className="section-block settings-details" open={!compact || connectedCount < 3}>
       <summary>
         <span className="summary-title">
           <KeyRound size={18} />
           <span>
-            <strong>Connections</strong>
-            <small>{connectedCount}/3 ready. Stored only in this browser session.</small>
+            <strong>Platform connections</strong>
+            <small>{connectedCount}/3 ready. Secrets are stored in PAS/platform, not in KB drafts.</small>
           </span>
         </span>
       </summary>
+      <div className="connection-grid">
+        <ConnectionBadge label="GitHub" state={connections.github} detail="Repository create/read/write through PAS proxy" />
+        <ConnectionBadge label="OpenAI" state={connections.openai} detail="AI generation through PAS proxy or key vault" />
+        <ConnectionBadge label="Cloudflare" state={connections.cloudflare} detail="Deploy credentials held by platform/org secrets" />
+      </div>
+      <p className="connection-detail">{connections.detail}</p>
       <div className="field-grid two">
-        <Field label="GitHub token" value={settings.githubToken} onChange={(v) => update('githubToken', v)} secret placeholder="ghp_..." />
-        <Field label="OpenAI API key" value={settings.openaiKey} onChange={(v) => update('openaiKey', v)} secret placeholder="sk-..." />
-        <Field label="Cloudflare account ID" value={settings.cloudflareAccountId} onChange={(v) => update('cloudflareAccountId', v)} placeholder="Account ID" />
-        <Field label="Cloudflare API token" value={settings.cloudflareApiToken} onChange={(v) => update('cloudflareApiToken', v)} secret placeholder="Pages edit token" />
         <Field label="OpenAI endpoint" value={settings.openaiEndpoint} onChange={(v) => update('openaiEndpoint', v)} />
         <Field label="Model" value={settings.model} onChange={(v) => update('model', v)} />
       </div>
+      <div className="action-row compact-actions">
+        <button className="secondary-action" type="button" onClick={onCheck}>
+          <ShieldCheck size={17} />
+          Check platform connections
+        </button>
+        <a className="secondary-action as-link" href="https://api.proappstore.online/v1/keys?app=freedocstore-editor" target="_blank" rel="noreferrer">
+          <KeyRound size={17} />
+          PAS key vault
+        </a>
+      </div>
     </details>
+  )
+}
+
+function ConnectionBadge({ label, state, detail }: { label: string; state: ConnectionState; detail: string }) {
+  const text = {
+    unchecked: 'Not checked',
+    checking: 'Checking',
+    ready: 'Ready',
+    'needs-setup': 'Needs setup',
+    error: 'Error',
+  }[state]
+  return (
+    <div className={`connection-badge ${state}`}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+      <p>{detail}</p>
+    </div>
   )
 }
 
@@ -796,11 +907,15 @@ function ProfilePage({
   user,
   settings,
   setSettings,
+  connections,
+  onCheck,
   kbs,
 }: {
   user: unknown
   settings: Settings
   setSettings: (settings: Settings) => void
+  connections: PlatformConnections
+  onCheck: () => void
   kbs: KnowledgeBaseDraft[]
 }) {
   const name = readUserField(user, 'name') || readUserField(user, 'login') || 'Signed-in user'
@@ -833,7 +948,7 @@ function ProfilePage({
         </div>
       </section>
       <section className="panel">
-        <SettingsPanel settings={settings} setSettings={setSettings} />
+        <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={onCheck} />
       </section>
     </div>
   )
@@ -1157,11 +1272,10 @@ async function generateEditProposal(settings: Settings, form: EditForm, current:
 }
 
 async function callOpenAi(settings: Settings, system: string, user: string): Promise<string> {
-  const res = await fetch(settings.openaiEndpoint, {
+  const res = await app.proxy.fetch(proxyTarget(settings.openaiEndpoint), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.openaiKey}`,
     },
     body: JSON.stringify({
       model: settings.model,
@@ -1179,13 +1293,13 @@ async function callOpenAi(settings: Settings, system: string, user: string): Pro
   return content
 }
 
-async function createRepo(token: string, form: PublishForm) {
-  const viewer = await githubJson(token, 'https://api.github.com/user')
+async function createRepo(form: PublishForm) {
+  const viewer = await githubJson('https://api.github.com/user')
   const isUser = viewer.login?.toLowerCase() === form.owner.toLowerCase()
   const url = isUser ? 'https://api.github.com/user/repos' : `https://api.github.com/orgs/${encodeURIComponent(form.owner)}/repos`
-  const res = await fetch(url, {
+  const res = await app.proxy.fetch(proxyTarget(url), {
     method: 'POST',
-    headers: githubHeaders(token),
+    headers: githubHeaders(),
     body: JSON.stringify({
       name: form.slug,
       description: `${form.title} - FreeDocStore Zensical knowledge base`,
@@ -1195,30 +1309,30 @@ async function createRepo(token: string, form: PublishForm) {
     }),
   })
   if (res.status === 422) {
-    return githubJson(token, `https://api.github.com/repos/${encodeURIComponent(form.owner)}/${encodeURIComponent(form.slug)}`)
+    return githubJson(`https://api.github.com/repos/${encodeURIComponent(form.owner)}/${encodeURIComponent(form.slug)}`)
   }
   if (!res.ok) throw new Error(`GitHub repo create failed: ${res.status} ${await res.text()}`)
   return res.json()
 }
 
-async function writeFiles(token: string, repo: string, files: RepoFile[]) {
+async function writeFiles(repo: string, files: RepoFile[]) {
   for (const file of files) {
-    await writeGitHubFile(token, repo, file.path, file.content)
+    await writeGitHubFile(repo, file.path, file.content)
   }
 }
 
-async function writeGitHubFile(token: string, repo: string, path: string, content: string) {
+async function writeGitHubFile(repo: string, path: string, content: string) {
   const encodedPath = path.split('/').map(encodeURIComponent).join('/')
-  const url = `https://api.github.com/repos/${repo}/contents/${encodedPath}`
+  const url = `https://api.github.com/repos/${repoApiPath(repo)}/contents/${encodedPath}`
   let sha: string | undefined
-  const existing = await fetch(url, { headers: githubHeaders(token) })
+  const existing = await app.proxy.fetch(proxyTarget(url), { headers: githubHeaders() })
   if (existing.ok) {
     const json = await existing.json()
     sha = json.sha
   }
-  const res = await fetch(url, {
+  const res = await app.proxy.fetch(proxyTarget(url), {
     method: 'PUT',
-    headers: githubHeaders(token),
+    headers: githubHeaders(),
     body: JSON.stringify({
       message: `${sha ? 'Update' : 'Add'} ${path}`,
       content: textToBase64(content),
@@ -1228,31 +1342,15 @@ async function writeGitHubFile(token: string, repo: string, path: string, conten
   if (!res.ok) throw new Error(`GitHub write failed for ${path}: ${res.status} ${await res.text()}`)
 }
 
-async function readGitHubFile(token: string, repo: string, path: string, branch: string) {
+async function readGitHubFile(repo: string, path: string, branch: string) {
   const encodedPath = path.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`, {
-    headers: githubHeaders(token),
+  const res = await app.proxy.fetch(`api.github.com/repos/${repoApiPath(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`, {
+    headers: githubHeaders(),
   })
   if (!res.ok) throw new Error(`GitHub read failed: ${res.status} ${await res.text()}`)
   const json = await res.json()
   if (json.encoding !== 'base64' || typeof json.content !== 'string') throw new Error('GitHub path is not a text file.')
   return base64ToText(json.content)
-}
-
-async function putGitHubSecret(token: string, repo: string, name: string, value: string) {
-  const sodium = (await import('libsodium-wrappers')).default
-  await sodium.ready
-  const key = await githubJson(token, `https://api.github.com/repos/${repo}/actions/secrets/public-key`)
-  const encrypted = sodium.to_base64(
-    sodium.crypto_box_seal(sodium.from_string(value), sodium.from_base64(key.key, sodium.base64_variants.ORIGINAL)),
-    sodium.base64_variants.ORIGINAL,
-  )
-  const res = await fetch(`https://api.github.com/repos/${repo}/actions/secrets/${name}`, {
-    method: 'PUT',
-    headers: githubHeaders(token),
-    body: JSON.stringify({ encrypted_value: encrypted, key_id: key.key_id }),
-  })
-  if (!res.ok) throw new Error(`GitHub secret ${name} failed: ${res.status} ${await res.text()}`)
 }
 
 function deployWorkflow(project: string, customDomain: string) {
@@ -1352,33 +1450,34 @@ function validatePublishForm(form: PublishForm) {
 }
 
 function validateAi(settings: Settings) {
-  if (!settings.openaiKey.trim()) throw new Error('OpenAI API key is required.')
   if (!settings.openaiEndpoint.trim()) throw new Error('OpenAI endpoint is required.')
   if (!settings.model.trim()) throw new Error('Model is required.')
 }
 
-function validateGitHub(settings: Settings) {
-  if (!settings.githubToken.trim()) throw new Error('GitHub token is required.')
+function validatePlatformAccess(user: unknown) {
+  if (!user) throw new Error('Sign in to PAS before publishing or editing.')
 }
 
-function validateCloudflare(settings: Settings) {
-  if (!settings.cloudflareAccountId.trim()) throw new Error('Cloudflare account ID is required.')
-  if (!settings.cloudflareApiToken.trim()) throw new Error('Cloudflare API token is required.')
-}
-
-function githubHeaders(token: string) {
+function githubHeaders() {
   return {
     Accept: 'application/vnd.github+json',
-    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     'X-GitHub-Api-Version': '2022-11-28',
   }
 }
 
-async function githubJson(token: string, url: string) {
-  const res = await fetch(url, { headers: githubHeaders(token) })
+async function githubJson(url: string) {
+  const res = await app.proxy.fetch(proxyTarget(url), { headers: githubHeaders() })
   if (!res.ok) throw new Error(`GitHub API failed: ${res.status} ${await res.text()}`)
   return res.json()
+}
+
+function proxyTarget(url: string) {
+  return url.replace(/^https?:\/\//, '')
+}
+
+function repoApiPath(repo: string) {
+  return repo.split('/').map(encodeURIComponent).join('/')
 }
 
 function upsertFile(files: RepoFile[], path: string, content: string) {

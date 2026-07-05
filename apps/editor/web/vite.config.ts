@@ -1,11 +1,7 @@
-import { createRequire } from 'node:module'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-
-const require = createRequire(import.meta.url)
-const libsodiumEsm = require.resolve('libsodium').replace(/dist\/modules\/libsodium\.js$/, 'dist/modules-esm/libsodium.mjs')
 
 export default defineConfig({
   plugins: [
@@ -56,9 +52,6 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      './libsodium.mjs': libsodiumEsm,
-    },
     dedupe: ['react', 'react-dom'],
   },
   server: { host: true },
