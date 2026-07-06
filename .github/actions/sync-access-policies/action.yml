@@ -39,6 +39,10 @@ inputs:
     description: Comma-separated office CIDRs that bypass auth entirely
     required: false
     default: ""
+  access-rules-json:
+    description: Cloudflare Access policy JSON with optional include, require, and exclude arrays
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -53,5 +57,6 @@ runs:
         CLIENT_EMAILS: ${{ inputs.client-emails }}
         CLIENT_DOMAIN: ${{ inputs.client-domain }}
         OFFICE_CIDRS: ${{ inputs.office-cidrs }}
+        ACCESS_RULES_JSON: ${{ inputs.access-rules-json }}
       run: |
         bash "${{ github.action_path }}/../../../templates/search/scripts/sync-access-policies.sh"

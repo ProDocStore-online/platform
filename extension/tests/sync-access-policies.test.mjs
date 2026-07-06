@@ -148,10 +148,16 @@ test('{"success": true, "result": null} is handled without jq iteration crash', 
   }
 });
 
-test("no Access rules configured leaves existing policies untouched", () => {
+test("no Access rules configured deletes managed policies and leaves app closed", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
-    const { mockPath, logPath } = makeMockCurl(tmp.root, 'emit("{}");');
+    const dispatch = `
+      if (url.includes("/policies") && method === "GET")
+        emit('{"success": true, "result": [{"id":"p1","name":"Old allow","precedence":1}]}');
+      if (url.includes("/policies/") && method === "DELETE")
+        emit('{"success": true, "result": {"id":"p1"}}');
+    `;
+    const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const env = {
       ...BASE_ENV,
       EMAIL_DOMAIN: "",
@@ -165,8 +171,10 @@ test("no Access rules configured leaves existing policies untouched", () => {
       0,
       `exit=${r.status}\nSTDOUT:\n${r.stdout}\nSTDERR:\n${r.stderr}`,
     );
-    assert.match(r.stdout, /No Access policy rules configured/);
-    assert.deepEqual(readCurlLog(logPath), []);
+    assert.match(r.stdout, /closed by default/);
+    const calls = readCurlLog(logPath);
+    assert.ok(calls.some(([m]) => m === "DELETE"));
+    assert.equal(calls.filter(([m]) => m === "POST").length, 0);
   } finally {
     tmp.cleanup();
   }
@@ -283,6 +291,57 @@ test("empty policy list + no CIDRs -> single allow POST", () => {
     assert.equal(posts.length, 1);
     // Allow policy takes precedence 1 when it's the only managed policy.
     assert.match(r.stdout, /at precedence 1/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("raw Cloudflare Access include, require, and exclude rules are added to allow policy", () => {
+  const tmp = mkdtempBare("sync-access-");
+  try {
+    const dispatch = `
+      if (url.includes("/policies") && method === "GET")
+        emit('{"success": true, "result": []}');
+      if (url.includes("/policies") && method === "POST")
+        emit('{"success": true, "result": {"id": "new"}}');
+    `;
+    const { mockPath } = makeMockCurl(tmp.root, dispatch);
+    const env = {
+      ...BASE_ENV,
+      EMAIL_DOMAIN: "",
+      ACCESS_RULES_JSON: JSON.stringify({
+        include: [{ github_organization: { name: "ProDocStore-online", identity_provider_id: "idp" } }],
+        require: [{ country: { country_code: "AU" } }],
+        exclude: [{ email: { email: "blocked@example.com" } }],
+      }),
+    };
+    const r = runScript(env, mockPath);
+    assert.equal(
+      r.status,
+      0,
+      `exit=${r.status}\nSTDOUT:\n${r.stdout}\nSTDERR:\n${r.stderr}`,
+    );
+    assert.match(r.stdout, /github_organization/);
+    assert.match(r.stdout, /"require":/);
+    assert.match(r.stdout, /"exclude":/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("raw Cloudflare Access require without include fails closed", () => {
+  const tmp = mkdtempBare("sync-access-");
+  try {
+    const { mockPath, logPath } = makeMockCurl(tmp.root, 'emit("{}");');
+    const env = {
+      ...BASE_ENV,
+      EMAIL_DOMAIN: "",
+      ACCESS_RULES_JSON: JSON.stringify({ require: [{ country: { country_code: "AU" } }] }),
+    };
+    const r = runScript(env, mockPath);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout + r.stderr, /need at least one include rule/);
+    assert.deepEqual(readCurlLog(logPath), []);
   } finally {
     tmp.cleanup();
   }
