@@ -163,6 +163,8 @@ Required FreeDocStore org Actions secrets:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
+The Cloudflare token must include `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and `Account Settings:Read` for the `freedocstore.online` zone. API and MCP deploys update Worker routes for `api.freedocstore.online/*` and `mcp.freedocstore.online/*`.
+
 ## AI Editor Flow
 
 1. Connect a GitHub file.
