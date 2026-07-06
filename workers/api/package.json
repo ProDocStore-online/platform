@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.12.27"
+    "hono": "^4.12.27",
+    "libsodium-wrappers-sumo": "^0.8.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250520.0",

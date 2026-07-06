@@ -649,6 +649,36 @@ h1 {
   background: color-mix(in srgb, var(--accent-2) 11%, var(--panel));
 }
 
+.access-box {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 46%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warn) 9%, var(--panel));
+  padding: 12px;
+}
+
+.access-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.access-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.access-box .field {
+  margin-bottom: 0;
+}
+
+.warning-note {
+  color: var(--danger) !important;
+}
+
 .icon-action {
   display: inline-grid;
   place-items: center;

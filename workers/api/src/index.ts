@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
+import sodium from "libsodium-wrappers-sumo";
 
 interface Env {
   PDS_API_KV: KVNamespace;
@@ -14,6 +15,8 @@ interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   PDS_KEY_ENCRYPTION_KEY?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
 }
 
 type AuthProvider = "github" | "google";
@@ -99,8 +102,9 @@ app.get("/", (c) => c.json({
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "prodocstore-api" }));
 
-app.get("/api/platform/status", (c) => {
+app.get("/api/platform/status", async (c) => {
   requireSession(c);
+  const cloudflare = await cloudflareReadiness(c.env);
   return c.json({
     ok: true,
     github: {
@@ -114,9 +118,7 @@ app.get("/api/platform/status", (c) => {
     openai: {
       byok: true,
     },
-    cloudflare: {
-      deployConnection: "github-actions-org-secret",
-    },
+    cloudflare,
   });
 });
 
@@ -342,6 +344,23 @@ app.delete("/api/secrets/openai", async (c) => {
   return c.json({ ok: true, openai: { configured: false, label: "" } });
 });
 
+app.post("/api/github/deploy-secrets", async (c) => {
+  requireSession(c);
+  requireSecret(c.env.GITHUB_TOKEN, "GITHUB_TOKEN");
+  requireSecret(c.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN");
+  requireSecret(c.env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
+
+  const body: { repo?: unknown } = await c.req.json<{ repo?: unknown }>().catch(() => ({}));
+  const repo = typeof body.repo === "string" ? body.repo.trim() : "";
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return c.json({ error: "Repo must be owner/name" }, 400);
+
+  const results = await Promise.all([
+    putGitHubRepoSecret(c.env, repo, "CLOUDFLARE_API_TOKEN", c.env.CLOUDFLARE_API_TOKEN!),
+    putGitHubRepoSecret(c.env, repo, "CLOUDFLARE_ACCOUNT_ID", c.env.CLOUDFLARE_ACCOUNT_ID!),
+  ]);
+  return c.json({ ok: true, repo, secrets: results.map((name) => ({ name, status: "set" })) });
+});
+
 app.all("/api/proxy", async (c) => {
   const session = requireSession(c);
   const target = c.req.query("target");
@@ -550,6 +569,97 @@ async function decryptSecret(env: Env, secret: StoredSecret): Promise<string> {
     toArrayBuffer(base64ToBytes(secret.ciphertext)),
   );
   return new TextDecoder().decode(plaintext);
+}
+
+async function putGitHubRepoSecret(env: Env, repo: string, name: string, value: string): Promise<string> {
+  const publicKeyRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/public-key`, {
+    headers: githubApiHeaders(env),
+  });
+  if (!publicKeyRes.ok) {
+    throwJson(500, `GitHub repo public key lookup failed for ${repo}: ${publicKeyRes.status}`);
+  }
+  const publicKey = await publicKeyRes.json<{ key?: string; key_id?: string }>();
+  if (!publicKey.key || !publicKey.key_id) throwJson(500, `GitHub repo public key response was incomplete for ${repo}`);
+
+  const encrypted = await encryptForGitHub(publicKey.key, value);
+  const putRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: {
+      ...githubApiHeaders(env),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      encrypted_value: encrypted,
+      key_id: publicKey.key_id,
+    }),
+  });
+  if (!putRes.ok) {
+    throwJson(500, `GitHub repo secret ${name} write failed for ${repo}: ${putRes.status}`);
+  }
+  return name;
+}
+
+async function cloudflareReadiness(env: Env) {
+  const configured = Boolean(env.CLOUDFLARE_API_TOKEN && env.CLOUDFLARE_ACCOUNT_ID);
+  const result = {
+    deployConnection: "github-actions-org-secret-and-repo-secret",
+    deploySecretsConfigured: configured,
+    pagesApiReady: false,
+    accessApiReady: false,
+    pagesError: "",
+    accessError: "",
+  };
+  if (!configured) {
+    result.pagesError = "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be configured on the API Worker.";
+    result.accessError = result.pagesError;
+    return result;
+  }
+  const base = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}`;
+  const pages = await cloudflareProbe(`${base}/pages/projects?per_page=1`, env.CLOUDFLARE_API_TOKEN!);
+  result.pagesApiReady = pages.ok;
+  result.pagesError = pages.error;
+  const access = await cloudflareProbe(`${base}/access/apps?per_page=1`, env.CLOUDFLARE_API_TOKEN!);
+  result.accessApiReady = access.ok;
+  result.accessError = access.error;
+  return result;
+}
+
+async function cloudflareProbe(url: string, token: string): Promise<{ ok: boolean; error: string }> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+    const data: { success?: boolean; errors?: Array<{ code?: number; message?: string }> } = await res.json<{ success?: boolean; errors?: Array<{ code?: number; message?: string }> }>().catch(() => ({}));
+    if (res.ok && data.success !== false) return { ok: true, error: "" };
+    const detail = data.errors?.map((item) => item.message || item.code).filter(Boolean).join("; ");
+    return { ok: false, error: detail || `Cloudflare API returned ${res.status}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Cloudflare API probe failed" };
+  }
+}
+
+async function encryptForGitHub(publicKey: string, value: string): Promise<string> {
+  await sodium.ready;
+  const keyBytes = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
+  const valueBytes = sodium.from_string(value);
+  const encryptedBytes = sodium.crypto_box_seal(valueBytes, keyBytes);
+  return sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
+}
+
+function githubApiHeaders(env: Env): Record<string, string> {
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${env.GITHUB_TOKEN || ""}`,
+    "User-Agent": "prodocstore-api",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+function encodeURIComponentRepo(repo: string): string {
+  return repo.split("/").map(encodeURIComponent).join("/");
 }
 
 async function importVaultKey(env: Env): Promise<CryptoKey> {

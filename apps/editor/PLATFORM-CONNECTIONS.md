@@ -33,6 +33,8 @@ wrangler secret put GITHUB_TOKEN
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
 wrangler secret put PDS_KEY_ENCRYPTION_KEY
+wrangler secret put CLOUDFLARE_API_TOKEN
+wrangler secret put CLOUDFLARE_ACCOUNT_ID
 ```
 
 `GITHUB_TOKEN` is the server-side platform token used for repository creation and content writes. The browser never receives it.
@@ -68,4 +70,6 @@ Generated KB repositories use `.github/workflows/deploy.yml` and expect Cloudfla
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-GitHub free org-level Actions secrets apply to public repositories only. Private KB repositories need repo-level deploy secrets unless the ProDocStore org moves to a paid GitHub plan.
+GitHub free org-level Actions secrets apply to public repositories only. For private KB repositories, the ProDocStore API installs these as repo-level Actions secrets before the first workflow commit. The browser never receives Cloudflare credentials.
+
+Private KB workflows also create and verify a Cloudflare Access application for the Pages URL before treating the deploy as successful. The Cloudflare token must include Pages edit, DNS edit, Workers/KV edit for the platform, and Zero Trust Access application/policy edit permissions.

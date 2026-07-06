@@ -37,6 +37,11 @@ export interface PlatformStatus {
   }
   cloudflare: {
     deployConnection: string
+    deploySecretsConfigured: boolean
+    pagesApiReady: boolean
+    accessApiReady: boolean
+    pagesError: string
+    accessError: string
   }
 }
 
@@ -107,6 +112,12 @@ export const pds = {
   platform: {
     status(): Promise<PlatformStatus> {
       return apiJson<PlatformStatus>('/api/platform/status')
+    },
+    installDeploySecrets(repo: string): Promise<{ ok: boolean; repo: string; secrets: Array<{ name: string; status: string }> }> {
+      return apiJson('/api/github/deploy-secrets', {
+        method: 'POST',
+        body: JSON.stringify({ repo }),
+      })
     },
   },
 }

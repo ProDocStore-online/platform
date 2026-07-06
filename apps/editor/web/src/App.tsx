@@ -66,6 +66,10 @@ interface PublishForm {
   owner: string
   customDomain: string
   visibility: 'public' | 'private'
+  accessEmailDomain: string
+  accessAllowedEmails: string
+  accessClientDomain: string
+  accessOfficeCidrs: string
   prompt: string
 }
 
@@ -131,6 +135,10 @@ const starterPublish: PublishForm = {
   owner: 'ProDocStore-online',
   customDomain: '',
   visibility: 'private',
+  accessEmailDomain: '',
+  accessAllowedEmails: '',
+  accessClientDomain: '',
+  accessOfficeCidrs: '',
   prompt:
     'A private staff knowledge base for onboarding, operating procedures, policies, and decision records.',
 }
@@ -146,8 +154,8 @@ const initialSteps: PublishStep[] = [
   { id: 'plan', label: 'Plan', detail: 'Create Zensical structure', state: 'idle' },
   { id: 'ai', label: 'Draft', detail: 'Generate Markdown files', state: 'idle' },
   { id: 'repo', label: 'Repo', detail: 'Create GitHub repository', state: 'idle' },
+  { id: 'secrets', label: 'Secrets', detail: 'Install Cloudflare deploy secrets', state: 'idle' },
   { id: 'files', label: 'Files', detail: 'Commit Zensical source', state: 'idle' },
-  { id: 'secrets', label: 'Platform', detail: 'Use stored Cloudflare deploy connection', state: 'idle' },
   { id: 'deploy', label: 'Deploy', detail: 'GitHub Actions publishes to Cloudflare', state: 'idle' },
 ]
 
@@ -206,6 +214,10 @@ function toPublishForm(kb: KnowledgeBaseDraft): PublishForm {
     owner: kb.owner,
     customDomain: kb.customDomain,
     visibility: kb.visibility,
+    accessEmailDomain: kb.accessEmailDomain,
+    accessAllowedEmails: kb.accessAllowedEmails,
+    accessClientDomain: kb.accessClientDomain,
+    accessOfficeCidrs: kb.accessOfficeCidrs,
     prompt: kb.prompt,
   }
 }
@@ -584,11 +596,17 @@ function EditorApp() {
       setKbSteps(kbId, updateStep('repo', 'ok', repo.html_url))
       setKbPatch(kbId, { repoUrl: repo.html_url })
 
+      if (form.visibility === 'private') {
+        setKbSteps(kbId, updateStep('secrets', 'busy', 'Installing repo-level deploy secrets'))
+        await app.platform.installDeploySecrets(repo.full_name)
+        setKbSteps(kbId, updateStep('secrets', 'ok', 'Repo-level deploy secrets installed'))
+      } else {
+        setKbSteps(kbId, updateStep('secrets', 'ok', 'Using public-org deploy secrets'))
+      }
+
       setKbSteps(kbId, updateStep('files', 'busy', 'Writing files to main'))
       await writeFiles(repo.full_name, readyFiles)
       setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed`))
-
-      setKbSteps(kbId, updateStep('secrets', 'ok', 'Using stored platform/org deploy secrets'))
 
       const url = liveTargetFor(form)
       setKbPatch(kbId, { liveUrl: url, lastStatus: 'Published' })
@@ -714,6 +732,7 @@ function EditorApp() {
         fetch('https://mcp.prodocstore.online/health').then((res) => res.ok ? res.json() as Promise<McpHealth> : null).catch(() => null),
       ])
       const githubReady = platform.github.oauthConfigured && platform.github.publishingTokenConfigured
+      const cloudflareReady = platform.cloudflare.deploySecretsConfigured && platform.cloudflare.pagesApiReady && platform.cloudflare.accessApiReady
       const mcpReady = Boolean(mcp?.oauthConfigured && mcp.storageConfigured)
       let currentSecrets = secrets
       if (!currentSecrets.openai.configured) {
@@ -738,18 +757,21 @@ function EditorApp() {
       const detailParts = [
         githubReady ? `GitHub publishing is configured for ${platform.github.org}.` : 'GitHub publishing needs the platform OAuth app and publishing token.',
         openai?.ok ? 'OpenAI BYOK is valid.' : currentSecrets.openai.configured ? `OpenAI ${openai?.status ?? 'not checked'}${openaiError ? `: ${openaiError}` : ''}.` : 'OpenAI needs your BYOK key.',
+        cloudflareReady
+          ? 'Cloudflare Pages and Access APIs are ready.'
+          : `Cloudflare needs setup${platform.cloudflare.accessError ? `: ${platform.cloudflare.accessError}` : platform.cloudflare.pagesError ? `: ${platform.cloudflare.pagesError}` : '.'}`,
         mcpReady ? 'MCP OAuth is configured.' : `MCP OAuth is not configured${mcp?.callbackUrl ? `; create its GitHub OAuth app with callback ${mcp.callbackUrl}.` : '.'}`,
       ]
       setConnections({
         github: githubReady ? 'ready' : 'needs-setup',
         openai: openai?.ok ? 'ready' : 'needs-setup',
-        cloudflare: 'ready',
+        cloudflare: cloudflareReady ? 'ready' : 'needs-setup',
         mcp: mcpReady ? 'ready' : 'needs-setup',
         detail: detailParts.join(' '),
       })
-      setStatus(githubReady && openai?.ok && mcpReady ? 'Platform connections ready' : 'Some platform connections need setup')
+      setStatus(githubReady && openai?.ok && cloudflareReady && mcpReady ? 'Platform connections ready' : 'Some platform connections need setup')
     } catch (error) {
-      setConnections({ github: 'error', openai: secrets.openai.configured ? 'error' : 'needs-setup', cloudflare: 'ready', mcp: 'error', detail: messageOf(error) })
+      setConnections({ github: 'error', openai: secrets.openai.configured ? 'error' : 'needs-setup', cloudflare: 'error', mcp: 'error', detail: messageOf(error) })
       setStatus(messageOf(error))
     }
   }
@@ -1553,6 +1575,23 @@ function PublishPanel({
           Private repo
         </button>
       </div>
+      {form.visibility === 'private' && (
+        <div className="access-box">
+          <div>
+            <strong>Cloudflare Access</strong>
+            <p>Private KBs must define at least one allow rule. ProDocStore protects the Pages URL before deployment and rolls back if it is public.</p>
+          </div>
+          <div className="field-grid two">
+            <Field label="Staff email domain" value={form.accessEmailDomain} onChange={(v) => update('accessEmailDomain', normalizeDomain(v))} placeholder="company.com" />
+            <Field label="Allowed emails" value={form.accessAllowedEmails} onChange={(v) => update('accessAllowedEmails', v)} placeholder="admin@company.com, ops@client.com" />
+            <Field label="Client email domain" value={form.accessClientDomain} onChange={(v) => update('accessClientDomain', normalizeDomain(v))} placeholder="client.com" />
+            <Field label="Office CIDRs" value={form.accessOfficeCidrs} onChange={(v) => update('accessOfficeCidrs', v)} placeholder="203.0.113.0/24" />
+          </div>
+          {form.customDomain && (
+            <p className="warning-note">Private custom-domain publishing is blocked until custom-domain Access provisioning is tested. Clear the custom domain or publish as public.</p>
+          )}
+        </div>
+      )}
       <div className="action-row">
         <button className="secondary-action" type="button" onClick={onGenerate} disabled={busy}>
           {busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
@@ -1827,7 +1866,7 @@ function Field({
 }
 
 async function generateKbFiles(settings: Settings, form: PublishForm): Promise<RepoFile[]> {
-  const workflow = deployWorkflow(form.slug, form.customDomain)
+  const workflow = deployWorkflow(form)
   const system = [
     'You generate ProDocStore knowledge bases.',
     'Only output GitHub repo source files for a Zensical project.',
@@ -1961,7 +2000,91 @@ async function readGitHubFile(repo: string, path: string, branch: string) {
   return base64ToText(json.content)
 }
 
-function deployWorkflow(project: string, customDomain: string) {
+function deployWorkflow(form: PublishForm) {
+  const project = form.slug
+  const customDomain = form.customDomain
+  const accessEnv = form.visibility === 'private'
+    ? `
+          ACCESS_EMAIL_DOMAIN: ${yamlString(form.accessEmailDomain)}
+          ACCESS_ALLOWED_EMAILS: ${yamlString(form.accessAllowedEmails)}
+          ACCESS_CLIENT_DOMAIN: ${yamlString(form.accessClientDomain)}
+          ACCESS_OFFICE_CIDRS: ${yamlString(form.accessOfficeCidrs)}
+`
+    : ''
+  const accessSteps = form.visibility === 'private'
+    ? `
+      - name: Ensure Cloudflare Access app
+        id: access
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+${accessEnv}        run: |
+          set -euo pipefail
+          DOMAIN="${project}.pages.dev"
+          BASE="https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/access"
+          APP_ID=""
+          PAGE=1
+          while true; do
+            LIST_RESPONSE=$(curl -sS "\${BASE}/apps?page=\${PAGE}&per_page=50" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
+            if [ "$(echo "$LIST_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+              echo "::error::Failed to list Cloudflare Access apps"
+              echo "$LIST_RESPONSE" >&2
+              exit 1
+            fi
+            MATCH=$(echo "$LIST_RESPONSE" | jq -r --arg d "$DOMAIN" '(.result // [])[] | select(.self_hosted_domains[]? == $d or .domain == $d) | .id' | head -1)
+            if [ -n "$MATCH" ]; then APP_ID="$MATCH"; break; fi
+            TOTAL_PAGES=$(echo "$LIST_RESPONSE" | jq -r '.result_info.total_pages // 1')
+            [ "$PAGE" -ge "$TOTAL_PAGES" ] && break
+            PAGE=$((PAGE + 1))
+          done
+          if [ -z "$APP_ID" ]; then
+            CREATE_RESPONSE=$(curl -sS -X POST "\${BASE}/apps" \
+              -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -nc --arg name "${project}" --arg domain "$DOMAIN" '{name:$name, domain:$domain, type:"self_hosted", session_duration:"24h"}')")
+            APP_ID=$(echo "$CREATE_RESPONSE" | jq -r '.result.id // empty')
+            if [ -z "$APP_ID" ]; then
+              echo "::error::Failed to create Cloudflare Access app for $DOMAIN"
+              echo "$CREATE_RESPONSE" >&2
+              exit 1
+            fi
+          fi
+          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
+      - name: Sync Cloudflare Access policies
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
+        with:
+          app-id: \${{ steps.access.outputs.app_id }}
+          cf-api-token: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cf-account-id: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          email-domain: ${yamlString(form.accessEmailDomain)}
+          client-emails: ${yamlString(form.accessAllowedEmails)}
+          client-domain: ${yamlString(form.accessClientDomain)}
+          office-cidrs: ${yamlString(form.accessOfficeCidrs)}
+`
+    : ''
+  const verifyAccessStep = form.visibility === 'private'
+    ? `
+      - name: Verify Cloudflare Access protection
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          sleep 15
+          DOMAIN="${project}.pages.dev"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://\${DOMAIN}" || echo "000")
+          echo "https://\${DOMAIN} returned HTTP \${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "::error::Private KB is publicly accessible. Rolling back latest deployment."
+            DEPLOYMENTS=$(curl -sS "https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/deployments" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
+            LATEST_ID=$(echo "$DEPLOYMENTS" | jq -r '.result[0].id // empty')
+            if [ -n "$LATEST_ID" ]; then
+              curl -sS -X DELETE "https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/deployments/\${LATEST_ID}?force=true" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" >/dev/null
+            fi
+            exit 1
+          fi
+`
+    : ''
   const domainStep = customDomain
     ? `
       - name: Attach custom domain
@@ -2059,12 +2182,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+${accessSteps}
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy site --project-name="${project}" --branch=main
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-${domainStep}`
+${verifyAccessStep}${domainStep}`
 }
 
 function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: string): RepoFile[] {
@@ -2110,6 +2234,24 @@ function validatePublishForm(form: PublishForm) {
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(form.owner.trim())) throw new Error('GitHub owner must be a valid user or organization name.')
   if (form.customDomain && !isValidDomain(form.customDomain)) throw new Error('Custom domain must be a valid hostname.')
   if (!form.prompt.trim()) throw new Error('Prompt is required.')
+  if (form.visibility === 'private') validatePrivateAccess(form)
+}
+
+function validatePrivateAccess(form: PublishForm) {
+  if (form.customDomain) throw new Error('Private custom domains are blocked until Cloudflare Access custom-domain provisioning is implemented. Clear the custom domain first.')
+  const hasIdentityRule = Boolean(form.accessEmailDomain || form.accessAllowedEmails.trim() || form.accessClientDomain)
+  const hasBypassRule = Boolean(form.accessOfficeCidrs.trim())
+  if (!hasIdentityRule && !hasBypassRule) throw new Error('Private KBs require at least one Cloudflare Access allow rule: staff domain, allowed emails, client domain, or office CIDR.')
+  if (form.accessEmailDomain && !isValidDomain(form.accessEmailDomain)) throw new Error('Staff email domain must be a valid domain.')
+  if (form.accessClientDomain && !isValidDomain(form.accessClientDomain)) throw new Error('Client email domain must be a valid domain.')
+  for (const email of commaList(form.accessAllowedEmails)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(`Allowed email is not valid: ${email}`)
+  }
+  for (const cidr of commaList(form.accessOfficeCidrs)) {
+    if (!/^(\d{1,3}\.){3}\d{1,3}\/([0-9]|[1-2][0-9]|3[0-2])$/.test(cidr)) throw new Error(`Office CIDR is not valid: ${cidr}`)
+    const octets = cidr.split('/')[0].split('.').map(Number)
+    if (octets.some((octet) => octet > 255)) throw new Error(`Office CIDR is not valid: ${cidr}`)
+  }
 }
 
 function validateAi(settings: Settings) {
@@ -2141,6 +2283,14 @@ async function githubJson(url: string) {
 
 function proxyTarget(url: string) {
   return url.replace(/^https?:\/\//, '')
+}
+
+function commaList(value: string) {
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
+function yamlString(value: string) {
+  return JSON.stringify(value)
 }
 
 function repoApiPath(repo: string) {
