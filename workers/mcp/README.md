@@ -40,6 +40,8 @@ claude mcp add --scope user --transport http freedocstore https://mcp.freedocsto
 | `whoami` | GitHub OAuth | Show the signed-in account |
 | `workspace_summary` | GitHub OAuth | Show saved console workspace state for the signed-in account |
 | `list_workspace_drafts` | GitHub OAuth | List KB drafts saved in the console workspace |
+| `create_workspace_draft` | GitHub OAuth + write | Create a console-visible Zensical KB draft |
+| `create_sample_knowledge_base` | GitHub OAuth + write | Create a sample KB draft for smoke testing |
 | `platform_guide` | none | FreeDocStore rules and Zensical publishing contract |
 | `list_knowledge_bases` | none | Read the public registry |
 | `knowledge_base_info` | none | Show repo, Cloudflare project, URLs, custom domains |

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "freedocstore": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://mcp.freedocstore.online/mcp"]
+      "type": "http",
+      "url": "https://mcp.freedocstore.online/mcp"
     }
   }
 }

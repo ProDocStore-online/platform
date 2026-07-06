@@ -44,11 +44,14 @@ interface WorkspaceDraft {
   owner?: string;
   customDomain?: string;
   visibility?: string;
+  prompt?: string;
   liveUrl?: string;
   repoUrl?: string;
   lastStatus?: string;
   updatedAt?: string;
   files?: Array<{ path?: string }>;
+  steps?: Array<{ id: string; label: string; detail: string; state: string }>;
+  createdAt?: string;
 }
 
 function slugify(input: string): string {
@@ -102,6 +105,99 @@ function renderDraft(draft: WorkspaceDraft): string {
     `Generated files: ${files.length ? files.join(", ") : "(none)"}`,
     `Updated: ${draft.updatedAt ?? "(unknown)"}`,
   ].join("\n");
+}
+
+function requireWorkspaceWrite(env: Env, props: McpProps): string {
+  if (!props?.userId) throw new Error("Not authenticated. Connect with GitHub OAuth first.");
+  if (!props.scopes?.includes("write")) throw new Error("This MCP token does not include the write scope.");
+  if (!env.FDS_API_KV) throw new Error("FDS_API_KV is not bound to the MCP worker.");
+  return props.userId;
+}
+
+function clonePublishSteps() {
+  return [
+    { id: "plan", label: "Create Zensical structure", detail: "Draft", state: "ok" },
+    { id: "ai", label: "Generate Markdown files", detail: "Created by MCP sample tool", state: "ok" },
+    { id: "repo", label: "Create GitHub repository", detail: "Not published yet", state: "idle" },
+    { id: "files", label: "Commit Zensical source", detail: "Not published yet", state: "idle" },
+    { id: "secrets", label: "Use stored Cloudflare deploy connection", detail: "Ready at platform level", state: "idle" },
+    { id: "deploy", label: "GitHub Actions publishes to Cloudflare", detail: "Not started", state: "idle" },
+  ];
+}
+
+function sampleFiles(title: string, prompt: string, slug: string, customDomain = "") {
+  const productionUrl = customDomain ? `https://${customDomain}/` : `https://${slug}.pages.dev/`;
+  return [
+    {
+      path: "README.md",
+      content: `# ${title}\n\nFreeDocStore sample knowledge base created through MCP.\n\n- Engine: Zensical\n- Source: docs/\n- Production target: ${productionUrl}\n`,
+    },
+    {
+      path: "zensical.toml",
+      content: [
+        `title = "${title.replace(/"/g, '\\"')}"`,
+        `base_url = "${productionUrl}"`,
+        'content_dir = "docs"',
+        'output_dir = "site"',
+        "",
+        "[navigation]",
+        "items = [",
+        '  { title = "Start", path = "index.md" },',
+        '  { title = "Assessment", path = "assessment.md" }',
+        "]",
+      ].join("\n"),
+    },
+    {
+      path: "docs/index.md",
+      content: [`# ${title}`, "", prompt, "", "This draft was created through the FreeDocStore MCP server."].join("\n"),
+    },
+    {
+      path: "docs/assessment.md",
+      content: [
+        "# Assessment",
+        "",
+        "Use this page to define the rubric, evidence sources, and maintenance process for this knowledge base.",
+      ].join("\n"),
+    },
+  ];
+}
+
+function makeWorkspaceDraft(input: {
+  title: string;
+  prompt: string;
+  slug: string;
+  owner: string;
+  customDomain?: string;
+  visibility?: string;
+}): WorkspaceDraft {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    title: input.title,
+    slug: input.slug,
+    owner: input.owner,
+    customDomain: input.customDomain ?? "",
+    visibility: input.visibility ?? "public",
+    prompt: input.prompt,
+    files: sampleFiles(input.title, input.prompt, input.slug, input.customDomain),
+    liveUrl: "",
+    repoUrl: "",
+    lastStatus: "Created via MCP",
+    createdAt: now,
+    updatedAt: now,
+    steps: clonePublishSteps(),
+  } as WorkspaceDraft;
+}
+
+function nextDraftSlug(existing: WorkspaceDraft[], preferred: string): string {
+  const base = slugify(preferred || "sample-knowledge-base") || "sample-knowledge-base";
+  const used = new Set(existing.map((draft) => draft.slug).filter(Boolean));
+  if (!used.has(base)) return base;
+  for (let i = 2; i < 1000; i += 1) {
+    const candidate = `${base}-${i}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
 }
 
 export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
@@ -180,6 +276,55 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
         const list = Array.isArray(drafts) ? drafts : [];
         if (!list.length) return txt("No KB drafts saved in this FreeDocStore workspace.");
         return txt(`${list.length} workspace draft(s):\n\n${list.map(renderDraft).join("\n\n---\n\n")}`);
+      },
+    );
+
+    this.server.tool(
+      "create_workspace_draft",
+      "Create a FreeDocStore KB draft in the signed-in console workspace. This creates Zensical Markdown source files in the draft but does not publish a GitHub repo.",
+      {
+        title: z.string().describe("Knowledge base title"),
+        prompt: z.string().describe("What this KB should cover"),
+        slug: z.string().optional().describe("Preferred slug. A suffix is added if it already exists."),
+        custom_domain: z.string().optional().describe("Optional custom domain, without scheme"),
+        visibility: z.enum(["public", "private"]).optional().describe("Repo visibility to use when published"),
+      },
+      async ({ title, prompt, slug, custom_domain, visibility }) => {
+        const userId = requireWorkspaceWrite(this.env, this.props);
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "fds:kbs:v1");
+        const drafts = Array.isArray(current) ? current : [];
+        const draft = makeWorkspaceDraft({
+          title,
+          prompt,
+          slug: nextDraftSlug(drafts, slug ?? title),
+          owner: this.env.GITHUB_ORG,
+          customDomain: custom_domain ?? "",
+          visibility: visibility ?? "public",
+        });
+        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:kbs:v1"), JSON.stringify([draft, ...drafts]));
+        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:active-kb:v1"), JSON.stringify(draft.id));
+        return txt(`Created FreeDocStore workspace draft via MCP.\n\n${renderDraft(draft)}`);
+      },
+    );
+
+    this.server.tool(
+      "create_sample_knowledge_base",
+      "Create a small sample FreeDocStore KB draft through MCP for smoke testing.",
+      {},
+      async () => {
+        const userId = requireWorkspaceWrite(this.env, this.props);
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "fds:kbs:v1");
+        const drafts = Array.isArray(current) ? current : [];
+        const title = "MCP Sample Knowledge Base";
+        const draft = makeWorkspaceDraft({
+          title,
+          prompt: "A small sample knowledge base created through MCP to verify FreeDocStore account visibility and draft creation.",
+          slug: nextDraftSlug(drafts, "mcp-sample-knowledge-base"),
+          owner: this.env.GITHUB_ORG,
+        });
+        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:kbs:v1"), JSON.stringify([draft, ...drafts]));
+        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:active-kb:v1"), JSON.stringify(draft.id));
+        return txt(`Created sample KB draft via MCP.\n\n${renderDraft(draft)}`);
       },
     );
 
@@ -405,7 +550,7 @@ export default {
           "- Cloudflare Pages project per KB",
           "- custom domains per KB",
           "",
-          "Tools: whoami, workspace_summary, list_workspace_drafts, platform_guide, list_knowledge_bases, knowledge_base_info, check_zensical_repo, list_files, read_file, deploy_status, publish_plan",
+          "Tools: whoami, workspace_summary, list_workspace_drafts, create_workspace_draft, create_sample_knowledge_base, platform_guide, list_knowledge_bases, knowledge_base_info, check_zensical_repo, list_files, read_file, deploy_status, publish_plan",
           "",
           "Auth: OAuth 2.1 via GitHub sign-in when connected through mcp-remote or Claude.",
         ].join("\n"),
