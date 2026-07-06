@@ -90,7 +90,7 @@ Content script (content.ts)
 
   <section id="install">
     <h2>Install</h2>
-    <p>The extension is not yet on the Chrome Web Store. Install it from source as an unpacked extension.</p>
+    <p>The extension is not yet on the Chrome Web Store. Install the packaged release zip, or build from source for development.</p>
 
     <h3>Prerequisites</h3>
     <ul>
@@ -99,7 +99,12 @@ Content script (content.ts)
       <li>A local clone of <code>FreeDocStore/platform</code>.</li>
     </ul>
 
-    <h3>Build</h3>
+    <h3>Packaged release</h3>
+    <div class="card">
+      <p><a href="https://github.com/FreeDocStore/platform/releases/latest">Download the latest FreeDocStore extension release</a>, unzip <code>freedocstore-v*.zip</code>, then load the unzipped folder in Chrome.</p>
+    </div>
+
+    <h3>Build from source</h3>
     <div class="card">
       <pre><code>git clone git@github.com:FreeDocStore/platform.git
 cd freedocstore/extension
