@@ -6,7 +6,7 @@
   <rect x="112" y="112" width="72" height="72" rx="16" fill="#f8fafc"/>
   <path d="M136 136h30M136 158h24M136 180h18" stroke="#0b5cad" stroke-width="9" stroke-linecap="round"/>
   <rect x="170" y="102" width="34" height="34" rx="9" fill="#0f766e"/>
-  <text x="112" y="246" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="800">FreeDocStore</text>
+  <text x="112" y="246" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="800">ProDocStore</text>
   <text x="112" y="286" fill="#b5c0cc" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600">Knowledge-base publishing</text>
   <rect x="112" y="350" width="154" height="42" rx="8" fill="#0b5cad"/>
   <text x="134" y="377" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">Zensical repos</text>

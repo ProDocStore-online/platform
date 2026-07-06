@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Inject <meta name="docs-repo" content="owner/name"> into <head> of
-// every docs/*.html page. The FreeDocStore browser extension reads this
+// every docs/*.html page. The ProDocStore browser extension reads this
 // tag to know which GitHub repo backs the page (for "Edit on GitHub",
 // commits, PRs, etc.).
 //

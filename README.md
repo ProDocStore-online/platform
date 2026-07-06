@@ -1,182 +1,125 @@
-# FreeDocStore Platform
+# ProDocStore Platform
 
-FreeDocStore is the public knowledge-base publishing layer in the Open Frontier store ecosystem.
+ProDocStore is the paid, private knowledge-base publishing platform for customer and staff documentation. It uses the same Zensical-only publishing contract as FreeDocStore, but the product boundary is different: private repos, secure access, customer workspaces, custom domains, and account-level BYOK.
 
-Canonical GitHub organization: <https://github.com/FreeDocStore>. The platform repo, published KB repos, reusable workflows, and shared Actions secrets belong to that org, the same way the other stores keep their infrastructure under their own store orgs.
-
-It turns GitHub-backed Zensical documentation repositories into free public knowledge bases with AI-first editing, reviewable proposals, Cloudflare publishing, search, and agent-readable metadata.
+Canonical GitHub organization: <https://github.com/ProDocStore-online>. The platform repo, generated customer KB repos, reusable workflows, and shared Actions configuration belong to that org.
 
 ## Product Rule
 
-Editing is AI-first.
+Knowledge bases are GitHub-backed Zensical books.
 
-Users describe what should change. The AI drafts the change. The user reviews the diff. Manual text editing happens in GitHub, not in a CMS textarea.
+- One GitHub repo per KB.
+- Markdown source lives in `docs/`.
+- Zensical config lives in `zensical.toml`.
+- Generated static output is build output, not source.
+- Manual editing happens in GitHub.
+- The console and extension are AI-first: prompt, review generated Markdown/diffs, then publish.
 
-## Current Scope
+## Scope
 
 - Product site in `site/`.
-- Legacy AI-first web workbench at `site/editor.html`.
-- FreeDocStore-owned React console app in `apps/editor/`.
-- Independent FreeDocStore API Worker in `workers/api/`.
+- React/PWA console app in `apps/editor/`.
+- ProDocStore API Worker in `workers/api/`.
 - Remote MCP Worker in `workers/mcp/`.
-- Browser extension in `extension/` for editing published docs pages from the side panel.
-- Reusable docs templates, deploy workflows, generators, and lint rules in `templates/`.
-- GitHub-backed proposal, PR, and extension workflows inherited from the seed engine and kept under FreeDocStore ownership.
-- KB publishing supports Zensical-format Markdown repos only for now.
-
-## Local Preview
-
-The public site is static:
-
-```bash
-open site/index.html
-open site/editor.html
-```
-
-Build the extension:
-
-```bash
-cd extension
-npm install
-npm run build
-npm test
-```
-
-Load `extension/dist/` as an unpacked extension in Chrome.
-
-## Free Layer
-
-FreeDocStore is for public knowledge bases:
-
-- Public docs hosting.
-- One GitHub repo per KB.
-- Markdown source in `docs/`.
-- Zensical config in `zensical.toml`.
-- Cloudflare Pages publishing for each KB.
-- Optional custom domains per KB.
-- AI proposal workflow.
-- Manual edits via GitHub.
-- Zensical-generated search, sitemap, and metadata.
-- Public MCP/read endpoints later.
-
-Free public docs should be cheap to host and easy to mirror, but FreeDocStore does not host copied HTML folders inside the platform repo.
-
-## Pro Pair
-
-ProDocStore is the future private paid layer:
-
-- Private staff/customer knowledge bases.
-- Authenticated access.
-- Team roles: owner, editor, viewer.
-- Private search.
-- Audit logs.
-- Scoped MCP tokens.
-- Custom domains.
-- SSO later.
-
-Do not build Pro-only private access into FreeDocStore first. Keep the Free platform public-first, but define interfaces so ProDocStore can reuse the AI editing and publishing engine.
+- Browser extension in `extension/` for AI-first editing of published KB pages.
+- Reusable Zensical templates, deploy workflows, generators, and lint rules in `templates/`.
 
 ## Repository Layout
 
 ```text
-site/                 Public FreeDocStore marketing site and legacy AI editor
-apps/editor/          FreeDocStore-owned React console for prompt-to-KB publishing
-workers/api/          FreeDocStore API, GitHub/Google OAuth, user KV, and platform proxy
+site/                 ProDocStore product site
+apps/editor/          React console for customer KB publishing and profile/BYOK
+workers/api/          API, GitHub/Google OAuth, user KV, and encrypted BYOK vault
 workers/mcp/          Cloudflare Worker remote MCP server
 docs/                 Product and engine docs
 extension/            MV3 Chrome extension for AI-first docs editing
-templates/            Reusable docs templates, add-ons, lint, and generators
-brand/                Brand assets inherited from the seed repo
+templates/            Reusable Zensical templates, workflows, lint, and generators
+brand/                Brand assets
 .github/workflows/    Deploy, release, lint, and test workflows
 ```
 
 ## Published Knowledge Bases
 
-Each knowledge base is its own GitHub repository. The platform registry records the repo, Zensical source layout, Cloudflare Pages project, production URL, and any custom domains.
-
-Local checkouts follow the same store convention as FAS and FGS: each published KB repo is checked out beside `platform`, not inside it.
+Each customer knowledge base is its own GitHub repository. Local checkouts follow the other store convention: published KB repos sit beside `platform`, not inside it.
 
 ```text
-~/dev/stores/fdocs/
-  platform/           FreeDocStore platform monorepo
-  true-non-profit/    Published KB repo: FreeDocStore/true-non-profit
-  <kb-slug>/          Future published KB repos
+~/dev/stores/pdocs/
+  platform/           ProDocStore platform monorepo
+  <kb-slug>/          Published customer KB repo
 ```
 
-The first KB is `FreeDocStore/true-non-profit`:
-
-- Source: <https://github.com/FreeDocStore/true-non-profit>
-- Production: <https://true-non-profit.pages.dev/>
-- Engine: Zensical
-- Source directory: `docs/`
-- Config: `zensical.toml`
-
-The platform repo does not contain generated KB pages and does not publish `/books/<slug>/` routes.
-
-## MCP
-
-FreeDocStore has a remote MCP server for agents:
-
-- Current endpoint: <https://mcp.freedocstore.online/mcp>
-- Discovery: <https://freedocstore.online/.well-known/mcp.json>
-- Local connector: `.mcp.json`
-- Source: `workers/mcp/`
-
-Current MCP tools are public/read and planning tools: list KBs, inspect registered KB metadata, validate Zensical repos, read source files, check deploy status, and create a publish plan from a topic prompt.
-
-Authenticated write tools come next: create KB repo, update Markdown files, register custom domains, and publish from prompt.
+The platform registry records repo, Zensical source layout, Cloudflare Pages project, production URL, custom domains, and visibility metadata. ProDocStore starts with an empty registry; customer KBs are added as they are created.
 
 ## Console
 
-The production console is a FreeDocStore app:
+Production console:
 
 - Source: `apps/editor/`
-- Production: <https://console.freedocstore.online/>
-- Deploy target: Cloudflare Pages project `freedocstore-editor`
+- URL: <https://console.prodocstore.online/>
+- Cloudflare Pages project: `prodocstore-editor`
 
-The console supports Google and GitHub sign-in, multiple KB drafts per account, one GitHub repo per KB, Zensical-only Markdown source, Cloudflare Pages publishing, and optional custom domains per KB.
+The console supports Google/GitHub sign-in, multiple KB drafts per account, profile-level OpenAI BYOK, one GitHub repo per KB, Zensical-only Markdown source, Cloudflare Pages publishing, and optional custom domains per KB.
 
 ## API
 
-The production editor talks to the independent FreeDocStore API Worker:
+Production API:
 
 - Source: `workers/api/`
-- Production: <https://api.freedocstore.online/>
-- Health check: <https://api.freedocstore.online/api/health>
-- Deploy target: Cloudflare Worker `freedocstore-api`
+- URL: <https://api.prodocstore.online/>
+- Health check: <https://api.prodocstore.online/api/health>
+- Worker: `prodocstore-api`
 
-The API owns GitHub sign-in, per-user workspace KV, and the encrypted per-user BYOK vault. The browser never stores GitHub, OpenAI, or Cloudflare deploy tokens per KB.
-
-Cloudflare deploy credentials must be configured as FreeDocStore organization-level GitHub Actions secrets so `FreeDocStore/platform` and every `FreeDocStore/<kb-slug>` repo can deploy through the shared workflows without per-repo key entry.
-
-Required worker secrets:
+Required API Worker secrets:
 
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_TOKEN`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
-- `FDS_KEY_ENCRYPTION_KEY`
+- `PDS_KEY_ENCRYPTION_KEY`
 
-OpenAI is BYOK only. Users save their own OpenAI key once in the console Profile page; the API resolves that encrypted key server-side for AI generation.
+OpenAI is BYOK only. Users save their own OpenAI key once on the console Profile page; the API stores it encrypted in the per-user vault and resolves it server-side for AI generation.
 
-Required FreeDocStore org Actions secrets:
+## MCP
+
+Production MCP:
+
+- Endpoint: <https://mcp.prodocstore.online/mcp>
+- Discovery: <https://prodocstore.online/.well-known/mcp.json>
+- Local connector: `.mcp.json`
+- Worker: `prodocstore-mcp`
+
+The MCP server exposes account visibility, workspace drafts, Zensical validation, registry reads, deploy checks, and prompt-to-publish planning. Authenticated write tools use the same ProDocStore user workspace and KV binding as the console.
+
+## Cloudflare And Secrets
+
+Secrets are documented in `~/dev/secrets/inventory.yaml` and stored in `~/dev/secrets/secrets.enc.yaml` through SOPS. Do not use Doppler.
+
+Required ProDocStore org Actions secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-The Cloudflare token must include `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and `Account Settings:Read` for the `freedocstore.online` zone. API and MCP deploys update Worker routes for `api.freedocstore.online/*` and `mcp.freedocstore.online/*`.
+GitHub free organizations expose org Actions secrets only to public repos. If ProDocStore creates private customer repos without a paid GitHub org plan, required deploy secrets must be set at the repo level or publishing must use a separate deploy path.
 
-## AI Editor Flow
+The Cloudflare token needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone.
 
-1. Connect a GitHub file.
-2. Describe the desired content change.
-3. AI returns a complete replacement proposal.
-4. The UI shows a read-only diff.
-5. User copies/downloads the proposal or opens GitHub's file editor.
+## Local Commands
 
-The browser extension has a stronger workflow: it can create proposal previews and apply through GitHub commits/PRs after user approval.
+```bash
+pnpm install
+pnpm test
 
-## Near-Term Plan
+pnpm --dir apps/editor dev
+npm --prefix workers/api run dev
+npm --prefix workers/mcp run dev
 
-See `docs/FREEDOCSTORE-PLAN.md`.
+cd extension
+npm install
+npm run build
+npm test
+```
+
+## Boundary With FreeDocStore
+
+FreeDocStore is the free/public publishing product. ProDocStore is the private/customer product. They can share the Zensical publishing contract and implementation patterns, but they must not share KV namespaces, OAuth apps, Chrome Web Store listings, Cloudflare routes, customer data, or product copy.

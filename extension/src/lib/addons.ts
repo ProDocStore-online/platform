@@ -2,7 +2,7 @@
 // templates/add-ons.json at the playbook repo root, which is read by
 // both this extension (system-prompt block + Options UI) and any
 // future user-facing rendering. Per VISION.md, add-ons are toggled
-// ONLY by the FreeDocStore agent in chat - never hand-edited.
+// ONLY by the ProDocStore agent in chat - never hand-edited.
 //
 // We import the JSON at build time so the catalog ships inside the
 // extension bundle. Updating the catalog is a coordinated change:

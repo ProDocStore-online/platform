@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FreeDocStore - free public knowledge-base publishing</title>
-  <meta name="description" content="Publish public knowledge bases from GitHub. AI drafts updates, humans review diffs, and manual edits stay in GitHub." />
+  <title>ProDocStore - private knowledge-base publishing</title>
+  <meta name="description" content="Publish private customer and staff knowledge bases from GitHub. AI drafts updates, humans review diffs, and manual edits stay in GitHub." />
 
-  <meta property="og:title" content="FreeDocStore - free public knowledge-base publishing" />
-  <meta property="og:description" content="GitHub-backed Zensical docs with AI-first editing, reviewable proposals, Cloudflare publishing, and agent-readable metadata." />
+  <meta property="og:title" content="ProDocStore - private knowledge-base publishing" />
+  <meta property="og:description" content="GitHub-backed Zensical books with AI-first editing, reviewable proposals, Cloudflare publishing, custom domains, and secure customer workspaces." />
   <meta property="og:type" content="website" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
@@ -17,7 +17,7 @@
 
   <nav class="nav">
     <div class="wrap nav-inner">
-      <a href="/" class="nav-brand">FreeDocStore</a>
+      <a href="/" class="nav-brand">ProDocStore</a>
       <div class="nav-links">
         <a href="#problem">Why</a>
         <a href="#knowledge-bases">KBs</a>
@@ -25,9 +25,9 @@
         <a href="#how">How it works</a>
         <a href="#agents">For agents</a>
         <a href="#mcp">MCP</a>
-        <a href="https://console.freedocstore.online/">Console</a>
+        <a href="https://console.prodocstore.online/">Console</a>
         <a href="hosting.html">Hosting</a>
-        <a href="https://github.com/FreeDocStore/platform">GitHub</a>
+        <a href="https://github.com/ProDocStore-online/platform">GitHub</a>
         <a href="#install" class="nav-cta">Install</a>
       </div>
     </div>
@@ -35,16 +35,16 @@
 
   <header class="hero">
     <div class="wrap">
-      <span class="hero-eyebrow">Open source</span>
-      <h1>Free public knowledge bases, <span class="accent">edited by AI.</span></h1>
+      <span class="hero-eyebrow">Private Zensical publishing</span>
+      <h1>Customer knowledge bases, <span class="accent">edited by AI.</span></h1>
       <p class="hero-sub">
-        FreeDocStore publishes public docs from GitHub. Ask AI to update a page, review the diff, then apply through
-        GitHub. No CMS body editor, no hidden database, no manual text changes outside source control.
+        ProDocStore publishes private staff and customer docs from GitHub. Ask AI to update a page, review the diff,
+        then apply through GitHub. No CMS body editor, no hidden source copy, no manual text changes outside source control.
       </p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href="#install">Start publishing</a>
-        <a class="btn btn-secondary" href="https://console.freedocstore.online/">Open console</a>
-        <a class="btn btn-secondary" href="https://github.com/FreeDocStore/platform">View on GitHub</a>
+        <a class="btn btn-secondary" href="https://console.prodocstore.online/">Open console</a>
+        <a class="btn btn-secondary" href="https://github.com/ProDocStore-online/platform">View on GitHub</a>
       </div>
     </div>
   </header>
@@ -52,9 +52,9 @@
   <section id="problem">
     <div class="wrap">
       <div class="section-eyebrow">The problem</div>
-      <h2 class="section-title">Public knowledge gets scattered, stale, and hard for agents to trust.</h2>
+      <h2 class="section-title">Private company knowledge gets scattered, stale, and hard for agents to trust.</h2>
       <p class="section-lede">
-        Teams write docs in READMEs, wikis, notes, and chat threads. AI can help maintain them, but
+        Teams write docs in READMEs, wikis, notes, tickets, and chat threads. AI can help maintain them, but
         only if the source is inspectable, reviewable, and published in a format both humans and agents can read.
       </p>
 
@@ -62,25 +62,25 @@
         <div class="problem-card">
           <span class="stat">Scattered</span>
           <h3>Knowledge lives in too many places</h3>
-          <p>A public project can have useful docs split across Markdown, GitHub issues, generated pages, and old
+          <p>A customer account can have useful docs split across Markdown, GitHub issues, generated pages, and old
           website folders. Readers and agents need one published surface.</p>
         </div>
         <div class="problem-card">
           <span class="stat">Stale</span>
           <h3>Docs fall behind the source</h3>
-          <p>Most docs platforms make editing easy but review weak. FreeDocStore keeps GitHub as the source of truth
+          <p>Most docs platforms make editing easy but review weak. ProDocStore keeps GitHub as the source of truth
           so every change has history, authorship, and rollback.</p>
         </div>
         <div class="problem-card">
           <span class="stat">AI drift</span>
           <h3>AI edits need review boundaries</h3>
-          <p>FreeDocStore lets AI draft a replacement, but humans review the diff. If a person wants to hand-edit,
+          <p>ProDocStore lets AI draft a replacement, but humans review the diff. If a person wants to hand-edit,
           they do it in GitHub rather than a separate CMS.</p>
         </div>
         <div class="problem-card">
           <span class="stat">Agent-ready</span>
           <h3>Docs need machine-readable outputs</h3>
-          <p>Public KBs should ship search, sitemaps, `llms.txt`, and MCP discovery metadata so agents can cite and
+          <p>Private KBs should ship search, sitemaps, `llms.txt`, and scoped MCP metadata so agents can cite and
           update the right source.</p>
         </div>
       </div>
@@ -92,21 +92,21 @@
       <div class="section-eyebrow">Published KBs</div>
       <h2 class="section-title">Each knowledge base is a Zensical repo.</h2>
       <p class="section-lede">
-        FreeDocStore publishes GitHub repositories that use Markdown in <code>docs/</code> and a <code>zensical.toml</code> config. Each KB deploys to its own Cloudflare Pages project and can attach custom domains.
+        ProDocStore publishes GitHub repositories that use Markdown in <code>docs/</code> and a <code>zensical.toml</code> config. Each KB deploys to its own Cloudflare Pages project and can attach custom domains.
       </p>
 
       <div class="problem-grid">
         <div class="problem-card">
-          <span class="stat">Draft 0.1</span>
-          <h3>True Non-Profit</h3>
-          <p>A first-principles body of knowledge about non-profits, what they should be, and how to assess their trueness.</p>
-          <p><a href="https://true-non-profit.pages.dev/">Read the KB</a></p>
+          <span class="stat">Private</span>
+          <h3>Customer-owned repos</h3>
+          <p>Each customer KB starts as a Zensical Markdown repo with its own Pages project, workflow, and domain target.</p>
+          <p><a href="https://console.prodocstore.online/">Create in console</a></p>
         </div>
         <div class="problem-card">
           <span class="stat">Source</span>
           <h3>GitHub-backed Markdown</h3>
-          <p>The first KB lives in its own repository. Zensical builds it from Markdown, and Cloudflare hosts the generated site.</p>
-          <p><a href="https://github.com/FreeDocStore/true-non-profit">Open the repo</a></p>
+          <p>ProDocStore keeps Markdown source in GitHub. Zensical builds it from Markdown, and Cloudflare hosts the generated site.</p>
+          <p><a href="https://github.com/ProDocStore-online/platform">Open the platform repo</a></p>
         </div>
       </div>
     </div>
@@ -145,7 +145,7 @@
       </div>
 
       <div class="hero-ctas editor-ctas">
-        <a class="btn btn-primary" href="https://console.freedocstore.online/">Open the console</a>
+        <a class="btn btn-primary" href="https://console.prodocstore.online/">Open the console</a>
         <a class="btn btn-secondary" href="docs/extension.html">Read extension docs</a>
       </div>
     </div>
@@ -156,7 +156,7 @@
       <div class="section-eyebrow">The loop</div>
       <h2 class="section-title">Prompt the change, review the proposal, publish from GitHub.</h2>
       <p class="section-lede">
-        The loop is intentionally narrow. FreeDocStore is not trying to replace GitHub; it makes GitHub-backed docs
+        The loop is intentionally narrow. ProDocStore is not trying to replace GitHub; it makes GitHub-backed docs
         easier for humans and AI agents to maintain.
       </p>
 
@@ -200,7 +200,7 @@
             <div class="how-num">1</div>
             <div>
               <h4>Connect a public repo</h4>
-              <p>Register the GitHub repository and docs path. FreeDocStore reads source from GitHub instead of storing a second copy.</p>
+              <p>Register the GitHub repository and docs path. ProDocStore reads source from GitHub instead of storing a second copy.</p>
             </div>
           </li>
           <li class="how-step">
@@ -254,7 +254,7 @@
       <div class="section-eyebrow">Agent-readable docs</div>
       <h2 class="section-title">Especially useful when AI is maintaining your knowledge base.</h2>
       <p class="section-lede">
-        Agents need current source, clear context, and permission boundaries. FreeDocStore gives them public docs
+        Agents need current source, clear context, and permission boundaries. ProDocStore gives them public docs
         to read and a proposal workflow for updates.
       </p>
 
@@ -278,9 +278,9 @@
           rollback where teams already work.</p>
         </div>
         <div class="problem-card">
-          <span class="stat">Free</span>
-          <h3>Public knowledge stays public</h3>
-          <p>The free product is for open/public KBs. Private staff or customer docs belong in ProDocStore.</p>
+          <span class="stat">Private</span>
+          <h3>Customer knowledge stays controlled</h3>
+          <p>FreeDocStore handles open/public KBs. ProDocStore is for closed staff and customer knowledge bases.</p>
         </div>
       </div>
     </div>
@@ -291,15 +291,15 @@
       <div class="section-eyebrow">MCP</div>
       <h2 class="section-title">Agents can inspect and plan Zensical KB publishing.</h2>
       <p class="section-lede">
-        The FreeDocStore MCP server exposes the public registry, repo inspection, Zensical validation, deploy checks, and publish planning. Write tools will be added behind auth.
+        The ProDocStore MCP server exposes account workspace visibility, registered KB metadata, Zensical validation, deploy checks, and publish planning. Write tools run behind auth.
       </p>
 
       <div class="problem-grid">
         <div class="problem-card">
           <span class="stat">Live</span>
           <h3>Remote MCP endpoint</h3>
-          <p>Connect agents to the production FreeDocStore MCP endpoint.</p>
-          <p><a href="https://mcp.freedocstore.online/">Open endpoint notes</a></p>
+          <p>Connect agents to the production ProDocStore MCP endpoint.</p>
+          <p><a href="https://mcp.prodocstore.online/">Open endpoint notes</a></p>
         </div>
         <div class="problem-card">
           <span class="stat">Discovery</span>
@@ -314,10 +314,10 @@
   <section id="install">
     <div class="wrap">
       <div class="cta-block">
-        <h2>Publish a public knowledge base.</h2>
-        <p>Use the web editor or extension to start from a GitHub-backed docs folder. FreeDocStore is open source, MIT licensed, and free for public docs.</p>
+        <h2>Publish a private knowledge base.</h2>
+        <p>Use the console or extension to start from a GitHub-backed Zensical repo. ProDocStore is the private/customer pair to FreeDocStore.</p>
         <div class="hero-ctas">
-          <a class="btn btn-primary" href="https://console.freedocstore.online/">Open console</a>
+          <a class="btn btn-primary" href="https://console.prodocstore.online/">Open console</a>
           <a class="btn btn-secondary" href="hosting.html">Read hosting notes</a>
         </div>
       </div>
@@ -328,8 +328,8 @@
     <div class="wrap">
       <div class="footer-grid">
         <div class="footer-brand">
-          <p class="footer-wordmark">FreeDocStore</p>
-          <p>Open-source infrastructure for public knowledge bases that humans and AI agents can read, update, and trust.</p>
+          <p class="footer-wordmark">ProDocStore</p>
+          <p>Private knowledge-base infrastructure that humans and AI agents can read, update, and trust.</p>
         </div>
         <div class="footer-col">
           <h5>Product</h5>
@@ -340,7 +340,7 @@
             <li><a href="#how">How it works</a></li>
             <li><a href="#agents">For agents</a></li>
             <li><a href="#mcp">MCP</a></li>
-            <li><a href="https://console.freedocstore.online/">Console</a></li>
+            <li><a href="https://console.prodocstore.online/">Console</a></li>
             <li><a href="#install">Install</a></li>
           </ul>
         </div>
@@ -348,12 +348,12 @@
           <h5>Resources</h5>
           <ul>
             <li><a href="hosting.html">Hosting notes</a></li>
-            <li><a href="https://github.com/FreeDocStore/platform">GitHub</a></li>
-            <li><a href="https://github.com/FreeDocStore/platform/issues">Issues</a></li>
+            <li><a href="https://github.com/ProDocStore-online/platform">GitHub</a></li>
+            <li><a href="https://github.com/ProDocStore-online/platform/issues">Issues</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h5>FreeDocStore</h5>
+          <h5>ProDocStore</h5>
           <ul>
             <li><a href="https://openfrontier.one">Website</a></li>
             <li><a href="mailto:hello@openfrontier.one">Contact</a></li>
@@ -361,7 +361,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <span>&copy; 2026 FreeDocStore. MIT licensed.</span>
+        <span>&copy; 2026 ProDocStore. MIT licensed.</span>
         <span>Public docs. AI-first edits. GitHub-backed.</span>
       </div>
     </div>

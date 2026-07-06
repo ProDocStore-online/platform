@@ -1,10 +1,10 @@
-# FreeDocStore MCP Server
+# ProDocStore MCP Server
 
-Remote MCP server for agents that publish and maintain FreeDocStore knowledge bases.
+Remote MCP server for agents that publish and maintain ProDocStore knowledge bases.
 
-Canonical source: `workers/mcp/` in <https://github.com/FreeDocStore/platform>.
+Canonical source: `workers/mcp/` in <https://github.com/ProDocStore-online/platform>.
 
-FreeDocStore is Zensical-only for now:
+ProDocStore is Zensical-only for now:
 
 - one GitHub repo per KB
 - Markdown source in `docs/`
@@ -18,19 +18,19 @@ FreeDocStore is Zensical-only for now:
 Current deployed endpoint:
 
 ```bash
-https://mcp.freedocstore.online/mcp
+https://mcp.prodocstore.online/mcp
 ```
 
 ## Connect
 
 ```bash
-codex mcp add freedocstore --url https://mcp.freedocstore.online/mcp
+codex mcp add prodocstore --url https://mcp.prodocstore.online/mcp
 ```
 
 or:
 
 ```bash
-claude mcp add --scope user --transport http freedocstore https://mcp.freedocstore.online/mcp
+claude mcp add --scope user --transport http prodocstore https://mcp.prodocstore.online/mcp
 ```
 
 ## Tools
@@ -42,7 +42,7 @@ claude mcp add --scope user --transport http freedocstore https://mcp.freedocsto
 | `list_workspace_drafts` | GitHub OAuth | List KB drafts saved in the console workspace |
 | `create_workspace_draft` | GitHub OAuth + write | Create a console-visible Zensical KB draft |
 | `create_sample_knowledge_base` | GitHub OAuth + write | Create a sample KB draft for smoke testing |
-| `platform_guide` | none | FreeDocStore rules and Zensical publishing contract |
+| `platform_guide` | none | ProDocStore rules and Zensical publishing contract |
 | `list_knowledge_bases` | none | Read the public registry |
 | `knowledge_base_info` | none | Show repo, Cloudflare project, URLs, custom domains |
 | `check_zensical_repo` | none | Validate a public repo has `zensical.toml` and `docs/` Markdown |
@@ -54,20 +54,20 @@ claude mcp add --scope user --transport http freedocstore https://mcp.freedocsto
 OAuth sign-in is GitHub-based and uses the same remote MCP flow as the other stores:
 
 ```bash
-claude mcp add --scope user --transport http freedocstore https://mcp.freedocstore.online/mcp
+claude mcp add --scope user --transport http prodocstore https://mcp.prodocstore.online/mcp
 ```
 
 The Worker requires:
 
 - `OAUTH_KV`
-- `FDS_API_KV`
+- `PDS_API_KV`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 
 The GitHub OAuth callback URL is:
 
 ```text
-https://mcp.freedocstore.online/callback
+https://mcp.prodocstore.online/callback
 ```
 
 Write tools come next after the signed-in account can be mapped to repo ownership:

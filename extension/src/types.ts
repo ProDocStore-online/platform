@@ -84,7 +84,7 @@ export interface TaskMessage {
 /**
  * An edit task: every change is its own thread, surfaced as a card on the
  * board and (Phase B) a marker on the page. Stored in chrome.storage.local
- * and best-effort mirrored to .freedocstore/tasks/<id>.json so teammates and
+ * and best-effort mirrored to .prodocstore/tasks/<id>.json so teammates and
  * Claude Code can see it.
  */
 export interface Task {
@@ -230,7 +230,7 @@ export interface PendingNavProposal {
 }
 
 /**
- * A pending addition to .freedocstore/MEMORY.md (the team-shared memory
+ * A pending addition to .prodocstore/MEMORY.md (the team-shared memory
  * file). Same preview/apply flow as edits - the side panel renders the
  * proposed entry, user approves, applyPendingProposal commits the
  * updated file.
@@ -401,7 +401,7 @@ export interface Settings {
    * Local debugging bridge. When `sinkUrl` is set, the side panel POSTs
    * diagnostic events (the dlog stream) and the live conversation to that
    * endpoint best-effort. Intended for a localhost collector (e.g. the
-   * freedocstore debug MCP server) so a developer - or an AI agent reading
+   * prodocstore debug MCP server) so a developer - or an AI agent reading
    * the collector - has full visibility into what the extension is doing.
    * Off by default (unset).
    */
@@ -503,7 +503,7 @@ export type RuntimeMessage =
   | { type: "PROPOSAL_RESULT"; payload: ChatMessage }
   | { type: "READ_REPO_FILE"; owner: string; repo: string; path: string }
   | { type: "READ_REPO_FILE_RESULT"; payload: { content: string } | { error: string } }
-  // Mirror the current scope's conversation into .freedocstore/chat/ in the
+  // Mirror the current scope's conversation into .prodocstore/chat/ in the
   // backing repo. Best-effort: the background no-ops (ok:false) when the
   // user isn't signed in to GitHub. The side panel fires this debounced
   // after a turn; it does not block the chat UI on the result.

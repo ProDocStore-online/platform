@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "freedocstore": {
+    "prodocstore": {
       "type": "http",
-      "url": "https://mcp.freedocstore.online/mcp"
+      "url": "https://mcp.prodocstore.online/mcp"
     }
   }
 }

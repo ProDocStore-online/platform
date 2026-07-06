@@ -4,7 +4,7 @@
 // lib/history.ts). This module is the durable, shareable mirror: it
 // commits the same thread as JSON to
 //
-//   .freedocstore/chat/history.json   on branch `freedocstore-chat`
+//   .prodocstore/chat/history.json   on branch `prodocstore-chat`
 //
 // in the repo the page resolves to. Why a dedicated branch and not the
 // default branch:
@@ -13,18 +13,18 @@
 //   - the default branch's history stays free of one-commit-per-turn noise.
 //
 // Reading it back is deliberately trivial: anything with repo access can
-// `git fetch` the branch (or `gh api ...?ref=freedocstore-chat`) and parse
+// `git fetch` the branch (or `gh api ...?ref=prodocstore-chat`) and parse
 // the JSON - no extension internals required. That's the whole point:
 // the repo becomes the shared source of truth for the conversation.
 
 import type { ChatMessage } from "../types";
 import type { GitHubClient } from "./github";
 
-export const CHAT_BRANCH = "freedocstore-chat";
-export const CHAT_DIR = ".freedocstore/chat";
+export const CHAT_BRANCH = "prodocstore-chat";
+export const CHAT_DIR = ".prodocstore/chat";
 export const CHAT_FILE = `${CHAT_DIR}/history.json`;
 
-/** On-disk shape of `.freedocstore/chat/history.json`. */
+/** On-disk shape of `.prodocstore/chat/history.json`. */
 export interface ConversationFile {
   /** Schema version, so a future shape change can be detected on read. */
   version: 1;
@@ -58,7 +58,7 @@ export function serializeConversation(
 }
 
 /**
- * Commit `messages` to `.freedocstore/chat/history.json` on the dedicated
+ * Commit `messages` to `.prodocstore/chat/history.json` on the dedicated
  * conversation branch, creating the branch (and the file) on first write.
  * Returns the commit URL. Idempotent in shape: each call overwrites the
  * single per-repo file with the full current thread.

@@ -1,0 +1,14 @@
+;; ProDocStore DNS records for Cloudflare BIND import.
+;; Import into the prodocstore.online zone, then keep records proxied.
+;;
+;; Cloudflare targets:
+;; - Product site: prodocstore.pages.dev
+;; - Console: prodocstore-editor.pages.dev
+;; - API Worker: prodocstore-api.serge-the-dev.workers.dev
+;; - MCP Worker: prodocstore-mcp.serge-the-dev.workers.dev
+
+prodocstore.online. 300 IN CNAME prodocstore.pages.dev.
+www.prodocstore.online. 300 IN CNAME prodocstore.pages.dev.
+console.prodocstore.online. 300 IN CNAME prodocstore-editor.pages.dev.
+api.prodocstore.online. 300 IN CNAME prodocstore-api.serge-the-dev.workers.dev.
+mcp.prodocstore.online. 300 IN CNAME prodocstore-mcp.serge-the-dev.workers.dev.

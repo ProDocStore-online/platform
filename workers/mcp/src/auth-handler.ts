@@ -77,7 +77,7 @@ app.get("/callback", async (c) => {
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${tokenJson.access_token}`,
-      "User-Agent": "freedocstore-mcp",
+      "User-Agent": "prodocstore-mcp",
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });

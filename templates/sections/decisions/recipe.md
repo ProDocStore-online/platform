@@ -50,7 +50,7 @@ The page itself opens with an index of the ADRs, then renders each in full.
 - **When a decision is no longer relevant.** Mark as *Deprecated*. (e.g., "We chose to support Internet Explorer 11" - if IE11 support has been dropped, the ADR is deprecated, not deleted.)
 - **When onboarding feedback uncovers a missing one.** If a new hire asks "why did we use X?" and the answer is in someone's head, write the ADR retroactively. Mark it with a "[retroactive]" tag in the status line.
 
-## FreeDocStore-specific notes
+## ProDocStore-specific notes
 
 - Render as a single `decisions.html` with each ADR as an `<article id="adr-N">` block. Link from the Architecture page liberally - "See ADR-3 for the database choice rationale."
 - Keep ADRs short - the original Nygard essay suggests one page per ADR. In HTML terms, that means one `<article>` per decision, typically 200-400 words. Longer ADRs usually contain implementation detail that belongs elsewhere.

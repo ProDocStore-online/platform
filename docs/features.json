@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/features.schema.json",
+  "$schema": "https://raw.githubusercontent.com/ProDocStore-online/platform/main/templates/features.schema.json",
 
   "changelog": false,
   "sitemap": false,

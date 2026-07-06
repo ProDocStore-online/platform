@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="FreeDocStore">
-  <title>FreeDocStore</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ProDocStore">
+  <title>ProDocStore</title>
   <rect width="32" height="32" rx="6" fill="#2f6f9f"/>
   <path d="M8 7h13c4 0 7 3 7 7v11H15c-4 0-7-3-7-7V7z" fill="#fffaf1"/>
   <path d="M13 13h9M13 17h8M13 21h5" stroke="#2f6f9f" stroke-width="2.2" stroke-linecap="round"/>

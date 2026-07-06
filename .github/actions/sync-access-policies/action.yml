@@ -2,7 +2,7 @@ name: Sync Cloudflare Access policies
 description: |
   Idempotently syncs the managed Cloudflare Access policies on a given Access app:
     - "Office network bypass"   (decision: bypass, IP-based)   - optional
-    - "Allow FreeDocStore users" (decision: allow)
+    - "Allow ProDocStore users" (decision: allow)
        includes optional email domains and explicit emails
                  + optional client domain
                  + optional explicit client emails

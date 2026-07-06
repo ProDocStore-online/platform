@@ -11,7 +11,7 @@ import type { Settings } from "./types";
  * that need to clear or migrate can reference the same string we use
  * everywhere else.
  */
-export const SETTINGS_KEY = "freedocstore.settings";
+export const SETTINGS_KEY = "prodocstore.settings";
 
 /**
  * Deep-merge a patch into existing settings.

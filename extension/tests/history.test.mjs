@@ -65,13 +65,13 @@ test("scopeFromContext: repo wins over origin", () => {
   // The whole point of preferring repo: a preview deploy and prod
   // deploy of the same site share the thread because they share a repo.
   const ctx = {
-    repo: { owner: "FreeDocStore", name: "freedocstore" },
+    repo: { owner: "ProDocStore", name: "prodocstore" },
     url: "https://docs.example.com/extension",
     sourcePath: "docs/extension.html",
     text: "",
     title: "",
   };
-  assert.equal(scopeFromContext(ctx), "repo:FreeDocStore/freedocstore");
+  assert.equal(scopeFromContext(ctx), "repo:ProDocStore/prodocstore");
 });
 
 test("scopeFromContext: falls back to origin when no repo", () => {
@@ -115,18 +115,18 @@ test("scopeFromContext: ctx without repo or url -> no-context", () => {
 // ── repoFromScope (inverse of the repo: branch) ─────────────────────
 
 test("repoFromScope: parses a repo scope back to owner/name", () => {
-  assert.deepEqual(repoFromScope("repo:FreeDocStore/freedocstore-test"), {
-    owner: "FreeDocStore",
-    name: "freedocstore-test",
+  assert.deepEqual(repoFromScope("repo:ProDocStore/prodocstore-test"), {
+    owner: "ProDocStore",
+    name: "prodocstore-test",
   });
 });
 
 test("repoFromScope: round-trips with scopeFromContext", () => {
   const scope = scopeFromContext({
-    repo: { owner: "FreeDocStore", name: "freedocstore" },
+    repo: { owner: "ProDocStore", name: "prodocstore" },
     url: "https://x/", sourcePath: "", text: "", title: "",
   });
-  assert.deepEqual(repoFromScope(scope), { owner: "FreeDocStore", name: "freedocstore" });
+  assert.deepEqual(repoFromScope(scope), { owner: "ProDocStore", name: "prodocstore" });
 });
 
 test("repoFromScope: origin and no-context scopes have no repo", () => {

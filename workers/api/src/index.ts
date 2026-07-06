@@ -3,7 +3,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 
 interface Env {
-  FDS_API_KV: KVNamespace;
+  PDS_API_KV: KVNamespace;
   EDITOR_BASE_URL: string;
   PUBLIC_BASE_URL: string;
   COOKIE_DOMAIN?: string;
@@ -13,7 +13,7 @@ interface Env {
   GITHUB_TOKEN?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  FDS_KEY_ENCRYPTION_KEY?: string;
+  PDS_KEY_ENCRYPTION_KEY?: string;
 }
 
 type AuthProvider = "github" | "google";
@@ -62,7 +62,7 @@ type Variables = {
   session: Session | null;
 };
 
-const SESSION_COOKIE = "fds_session";
+const SESSION_COOKIE = "pds_session";
 const STATE_PREFIX = "oauth_state:";
 const SESSION_PREFIX = "session:";
 const USER_SESSION_PREFIX = "user_session:";
@@ -92,12 +92,12 @@ app.use("*", async (c, next) => {
 
 app.get("/", (c) => c.json({
   ok: true,
-  name: "FreeDocStore API",
+  name: "ProDocStore API",
   publicBaseUrl: c.env.PUBLIC_BASE_URL,
   editorBaseUrl: c.env.EDITOR_BASE_URL,
 }));
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "freedocstore-api" }));
+app.get("/api/health", (c) => c.json({ ok: true, service: "prodocstore-api" }));
 
 app.get("/api/me", (c) => {
   const session = c.get("session");
@@ -111,7 +111,7 @@ app.get("/auth/github/start", async (c) => {
   requireSecret(c.env.GITHUB_CLIENT_ID, "GITHUB_CLIENT_ID");
   const state = crypto.randomUUID();
   const next = safeNext(c.req.query("next"), c.env.EDITOR_BASE_URL);
-  await c.env.FDS_API_KV.put(`${STATE_PREFIX}${state}`, JSON.stringify({ provider: "github", next }), { expirationTtl: STATE_TTL });
+  await c.env.PDS_API_KV.put(`${STATE_PREFIX}${state}`, JSON.stringify({ provider: "github", next }), { expirationTtl: STATE_TTL });
   const callback = new URL("/auth/github/callback", c.req.url);
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID!);
@@ -128,9 +128,9 @@ app.get("/auth/github/callback", async (c) => {
   const code = c.req.query("code");
   const state = c.req.query("state");
   if (!code || !state) return c.text("Missing OAuth code or state", 400);
-  const stateRaw = await c.env.FDS_API_KV.get(`${STATE_PREFIX}${state}`);
+  const stateRaw = await c.env.PDS_API_KV.get(`${STATE_PREFIX}${state}`);
   if (!stateRaw) return c.text("OAuth state expired", 400);
-  await c.env.FDS_API_KV.delete(`${STATE_PREFIX}${state}`);
+  await c.env.PDS_API_KV.delete(`${STATE_PREFIX}${state}`);
   const { next } = JSON.parse(stateRaw) as { next?: string };
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -149,7 +149,7 @@ app.get("/auth/github/callback", async (c) => {
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${tokenData.access_token}`,
-      "User-Agent": "freedocstore-api",
+      "User-Agent": "prodocstore-api",
     },
   });
   if (!userRes.ok) return c.text(`GitHub user lookup failed: ${userRes.status}`, 401);
@@ -177,7 +177,7 @@ app.get("/auth/google/start", async (c) => {
   requireSecret(c.env.GOOGLE_CLIENT_ID, "GOOGLE_CLIENT_ID");
   const state = crypto.randomUUID();
   const next = safeNext(c.req.query("next"), c.env.EDITOR_BASE_URL);
-  await c.env.FDS_API_KV.put(`${STATE_PREFIX}${state}`, JSON.stringify({ provider: "google", next }), { expirationTtl: STATE_TTL });
+  await c.env.PDS_API_KV.put(`${STATE_PREFIX}${state}`, JSON.stringify({ provider: "google", next }), { expirationTtl: STATE_TTL });
   const callback = new URL("/auth/google/callback", c.req.url);
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", c.env.GOOGLE_CLIENT_ID!);
@@ -195,9 +195,9 @@ app.get("/auth/google/callback", async (c) => {
   const code = c.req.query("code");
   const state = c.req.query("state");
   if (!code || !state) return c.text("Missing OAuth code or state", 400);
-  const stateRaw = await c.env.FDS_API_KV.get(`${STATE_PREFIX}${state}`);
+  const stateRaw = await c.env.PDS_API_KV.get(`${STATE_PREFIX}${state}`);
   if (!stateRaw) return c.text("OAuth state expired", 400);
-  await c.env.FDS_API_KV.delete(`${STATE_PREFIX}${state}`);
+  await c.env.PDS_API_KV.delete(`${STATE_PREFIX}${state}`);
   const { next } = JSON.parse(stateRaw) as { next?: string };
   const callback = new URL("/auth/google/callback", c.req.url);
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -244,27 +244,27 @@ app.get("/auth/google/callback", async (c) => {
 
 app.post("/api/logout", async (c) => {
   const session = c.get("session");
-  if (session) await c.env.FDS_API_KV.delete(`${SESSION_PREFIX}${session.id}`);
+  if (session) await c.env.PDS_API_KV.delete(`${SESSION_PREFIX}${session.id}`);
   clearSessionCookie(c);
   return c.json({ ok: true });
 });
 
 app.delete("/api/account", async (c) => {
   const session = requireSession(c);
-  await c.env.FDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:fds:config:v1`);
-  await c.env.FDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:fds:kbs:v1`);
-  await c.env.FDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:fds:active-kb:v1`);
-  await c.env.FDS_API_KV.delete(userSecretKey(session, OPENAI_SECRET_KEY));
-  await c.env.FDS_API_KV.delete(`${SESSION_PREFIX}${session.id}`);
-  await c.env.FDS_API_KV.delete(`${USER_SESSION_PREFIX}${session.user.id}`);
+  await c.env.PDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:pds:config:v1`);
+  await c.env.PDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:pds:kbs:v1`);
+  await c.env.PDS_API_KV.delete(`${USER_KV_PREFIX}${session.user.id}:pds:active-kb:v1`);
+  await c.env.PDS_API_KV.delete(userSecretKey(session, OPENAI_SECRET_KEY));
+  await c.env.PDS_API_KV.delete(`${SESSION_PREFIX}${session.id}`);
+  await c.env.PDS_API_KV.delete(`${USER_SESSION_PREFIX}${session.user.id}`);
   clearSessionCookie(c);
   return c.json({ ok: true });
 });
 
 app.get("/api/billing", (c) => {
   return c.json({
-    plan: "free",
-    status: "free",
+    plan: "prodocstore-launch",
+    status: "trial",
     billingEnabled: false,
   });
 });
@@ -272,7 +272,7 @@ app.get("/api/billing", (c) => {
 app.get("/api/kv/*", async (c) => {
   const session = requireSession(c);
   const key = kvKeyFromPath(c.req.path);
-  const value = await c.env.FDS_API_KV.get(userKvKey(session, key), "json");
+  const value = await c.env.PDS_API_KV.get(userKvKey(session, key), "json");
   return c.json({ key, value });
 });
 
@@ -280,14 +280,14 @@ app.put("/api/kv/*", async (c) => {
   const session = requireSession(c);
   const key = kvKeyFromPath(c.req.path);
   const value = (await c.req.json<{ value: unknown }>()).value;
-  await c.env.FDS_API_KV.put(userKvKey(session, key), JSON.stringify(value));
+  await c.env.PDS_API_KV.put(userKvKey(session, key), JSON.stringify(value));
   return c.json({ ok: true });
 });
 
 app.delete("/api/kv/*", async (c) => {
   const session = requireSession(c);
   const key = kvKeyFromPath(c.req.path);
-  await c.env.FDS_API_KV.delete(userKvKey(session, key));
+  await c.env.PDS_API_KV.delete(userKvKey(session, key));
   return c.json({ ok: true });
 });
 
@@ -308,7 +308,7 @@ app.put("/api/secrets/openai", async (c) => {
   if (!value) return c.json({ error: "OpenAI API key is required" }, 400);
   if (!/^sk-[A-Za-z0-9_-]{12,}$/.test(value)) return c.json({ error: "OpenAI API key format is not valid" }, 400);
   const encrypted = await encryptSecret(c.env, value);
-  await c.env.FDS_API_KV.put(userSecretKey(session, OPENAI_SECRET_KEY), JSON.stringify({
+  await c.env.PDS_API_KV.put(userSecretKey(session, OPENAI_SECRET_KEY), JSON.stringify({
     ...encrypted,
     label: redactSecret(value),
   }));
@@ -317,7 +317,7 @@ app.put("/api/secrets/openai", async (c) => {
 
 app.delete("/api/secrets/openai", async (c) => {
   const session = requireSession(c);
-  await c.env.FDS_API_KV.delete(userSecretKey(session, OPENAI_SECRET_KEY));
+  await c.env.PDS_API_KV.delete(userSecretKey(session, OPENAI_SECRET_KEY));
   return c.json({ ok: true, openai: { configured: false, label: "" } });
 });
 
@@ -334,7 +334,7 @@ app.all("/api/proxy", async (c) => {
 
   if (url.hostname === "api.github.com") {
     headers.set("Authorization", `Bearer ${c.env.GITHUB_TOKEN || session.githubAccessToken || ""}`);
-    headers.set("User-Agent", "freedocstore-api");
+    headers.set("User-Agent", "prodocstore-api");
     headers.set("X-GitHub-Api-Version", c.req.header("X-GitHub-Api-Version") || "2022-11-28");
   } else if (url.hostname === "api.openai.com") {
     const openaiSecret = await readStoredSecret(c.env, session, OPENAI_SECRET_KEY);
@@ -368,7 +368,7 @@ export default app;
 function allowedOrigin(env: Env, origin: string | undefined): string | null {
   if (!origin) return null;
   const originUrl = safeUrl(origin);
-  if (originUrl?.hostname === "freedocstore-editor.pages.dev" || originUrl?.hostname.endsWith(".freedocstore-editor.pages.dev")) return origin;
+  if (originUrl?.hostname === "prodocstore-editor.pages.dev" || originUrl?.hostname.endsWith(".prodocstore-editor.pages.dev")) return origin;
   const allowed = new Set([
     env.EDITOR_BASE_URL,
     env.PUBLIC_BASE_URL,
@@ -413,13 +413,13 @@ function corsErrorResponse(c: Parameters<Parameters<typeof app.onError>[0]>[1], 
 
 async function readSession(env: Env, id: string | undefined): Promise<Session | null> {
   if (!id) return null;
-  return env.FDS_API_KV.get<Session>(`${SESSION_PREFIX}${id}`, "json");
+  return env.PDS_API_KV.get<Session>(`${SESSION_PREFIX}${id}`, "json");
 }
 
 async function writeSession(env: Env, session: Session) {
   await Promise.all([
-    env.FDS_API_KV.put(`${SESSION_PREFIX}${session.id}`, JSON.stringify(session), { expirationTtl: SESSION_TTL }),
-    env.FDS_API_KV.put(`${USER_SESSION_PREFIX}${session.user.id}`, session.id, { expirationTtl: SESSION_TTL }),
+    env.PDS_API_KV.put(`${SESSION_PREFIX}${session.id}`, JSON.stringify(session), { expirationTtl: SESSION_TTL }),
+    env.PDS_API_KV.put(`${USER_SESSION_PREFIX}${session.user.id}`, session.id, { expirationTtl: SESSION_TTL }),
   ]);
 }
 
@@ -482,7 +482,7 @@ function redactSecret(value: string) {
 }
 
 async function readStoredSecret(env: Env, session: Session, key: string): Promise<StoredSecret | null> {
-  const raw = await env.FDS_API_KV.get(userSecretKey(session, key));
+  const raw = await env.PDS_API_KV.get(userSecretKey(session, key));
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<StoredSecret>;
@@ -532,9 +532,9 @@ async function decryptSecret(env: Env, secret: StoredSecret): Promise<string> {
 }
 
 async function importVaultKey(env: Env): Promise<CryptoKey> {
-  requireSecret(env.FDS_KEY_ENCRYPTION_KEY, "FDS_KEY_ENCRYPTION_KEY");
-  const raw = decodeKeyMaterial(env.FDS_KEY_ENCRYPTION_KEY!);
-  if (![16, 24, 32].includes(raw.byteLength)) throwJson(500, "FDS_KEY_ENCRYPTION_KEY must decode to 16, 24, or 32 bytes");
+  requireSecret(env.PDS_KEY_ENCRYPTION_KEY, "PDS_KEY_ENCRYPTION_KEY");
+  const raw = decodeKeyMaterial(env.PDS_KEY_ENCRYPTION_KEY!);
+  if (![16, 24, 32].includes(raw.byteLength)) throwJson(500, "PDS_KEY_ENCRYPTION_KEY must decode to 16, 24, or 32 bytes");
   return crypto.subtle.importKey("raw", toArrayBuffer(raw), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 

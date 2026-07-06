@@ -45,7 +45,7 @@ That's it. Glossaries are valuable because they are short and findable. Resist t
 - **A term is removed from the system** - delete its entry, or mark *Deprecated* and link to whatever replaced it.
 - **A new contributor's question is "what does X mean here?"** - the answer should be on this page. If it is not, add it now.
 
-## FreeDocStore-specific notes
+## ProDocStore-specific notes
 
 - Render as a single `glossary.html`. Most glossaries fit comfortably in one page even for fairly large projects (50-150 terms). At larger scale, group by category with `<h2>` headings (e.g., *Domain terms, System terms, Process terms*) but keep the file singular.
 - Use `<dl>` (description list) for the term/definition pairs - it is the semantic HTML for this exact pattern. `<dt>` for the term, `<dd>` for the definition. Browsers render it cleanly; screen readers handle it well; search engines understand it.

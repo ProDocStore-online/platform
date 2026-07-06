@@ -1,10 +1,10 @@
 // Task store: every content edit is a task (one board card, one thread).
 //
-// Two layers, mirroring lib/freedocstore-chat.ts:
+// Two layers, mirroring lib/prodocstore-chat.ts:
 //   - Primary: chrome.storage.local under TASKS_KEY. Instant reads for the
 //     board + in-page markers, available in every extension context.
-//   - Shared:  best-effort mirror to .freedocstore/tasks/<id>.json on the
-//     `freedocstore-chat` branch, so teammates' extensions and Claude Code
+//   - Shared:  best-effort mirror to .prodocstore/tasks/<id>.json on the
+//     `prodocstore-chat` branch, so teammates' extensions and Claude Code
 //     see the same tasks. One file per task = no write conflicts between
 //     concurrent tasks.
 //
@@ -16,10 +16,10 @@
 import type { Task, TaskStatus } from "../types";
 import { GitHubClient } from "./github";
 import { loadStoredSettings } from "../settings";
-import { CHAT_BRANCH } from "./freedocstore-chat";
+import { CHAT_BRANCH } from "./prodocstore-chat";
 
-export const TASKS_KEY = "freedocstore.tasks";
-export const TASKS_DIR = ".freedocstore/tasks";
+export const TASKS_KEY = "prodocstore.tasks";
+export const TASKS_DIR = ".prodocstore/tasks";
 
 export function taskFilePath(id: string): string {
   return `${TASKS_DIR}/${id}.json`;
@@ -132,7 +132,7 @@ export function mergeTasks(local: Task[], remote: Task[]): Task[] {
 }
 
 /**
- * Read every teammate's task from .freedocstore/tasks/*.json on the conversation
+ * Read every teammate's task from .prodocstore/tasks/*.json on the conversation
  * branch. Best-effort: returns [] when the folder/branch doesn't exist yet and
  * skips any file that isn't a well-formed task, so a hand-edited or partial
  * file can't break the board. One GitHub request to list the dir + one per
@@ -206,7 +206,7 @@ export async function fetchAllSharedTasks(
 // ── shared folder mirror (best-effort) ───────────────────────────────
 
 /**
- * Commit one task's JSON to .freedocstore/tasks/<id>.json on the conversation
+ * Commit one task's JSON to .prodocstore/tasks/<id>.json on the conversation
  * branch. Creates the branch/file on first write. Callers should treat
  * this as best-effort (wrap in catch) - a mirror failure must never block
  * the local task update or the chat UI.

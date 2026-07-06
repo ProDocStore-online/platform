@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow">
-<title>Install FreeDocStore</title>
+<title>Install ProDocStore</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <style>
@@ -46,8 +46,8 @@
 <header class="topbar">
   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
-    <span class="badge">FreeDocStore</span>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
+    <span class="badge">ProDocStore</span>
   </h1>
   <nav class="topbar-links">
     <a href="components.html">Components</a>
@@ -75,7 +75,7 @@
 <main class="content">
 
   <section id="overview">
-    <h2>Install the FreeDocStore extension</h2>
+    <h2>Install the ProDocStore extension</h2>
     <p>The browser extension lets you chat with an AI agent to edit any docs page directly from the rendered site. Two install paths: the Chrome Web Store (recommended for everyone) or a self-host .zip download (for power users who don't want to wait on store review for a patch).</p>
   </section>
 
@@ -98,10 +98,10 @@
     <p>Use this when you need a same-day patch that hasn't cleared store review, or if you don't want to depend on the Chrome Web Store.</p>
     <div class="card">
       <p>
-        <a class="install-cta secondary" href="https://github.com/FreeDocStore/platform/releases/latest">Download latest release</a>
+        <a class="install-cta secondary" href="https://github.com/ProDocStore-online/platform/releases/latest">Download latest release</a>
       </p>
       <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
-        Pick the <code>freedocstore-v*.zip</code> asset on the latest release. The zip contains a ready-to-load <code>dist/</code> folder.
+        Pick the <code>prodocstore-v*.zip</code> asset on the latest release. The zip contains a ready-to-load <code>dist/</code> folder.
       </p>
     </div>
   </section>
@@ -110,7 +110,7 @@
     <h2>Load the .zip into Chrome</h2>
     <p>Skip this section if you used the Chrome Web Store path.</p>
     <ol>
-      <li>Unzip the downloaded <code>freedocstore-v*.zip</code>. You get a folder with <code>manifest.json</code> at the top level.</li>
+      <li>Unzip the downloaded <code>prodocstore-v*.zip</code>. You get a folder with <code>manifest.json</code> at the top level.</li>
       <li>Open <code>chrome://extensions</code>.</li>
       <li>Toggle <strong>Developer mode</strong> (top-right).</li>
       <li>Click <strong>Load unpacked</strong>.</li>
@@ -125,8 +125,8 @@
   <section id="after-install">
     <h2>After install</h2>
     <ol>
-      <li>Open any FreeDocStore-enabled docs site.</li>
-      <li>Click the <strong>FreeDocStore</strong> toolbar icon. Chrome opens a side panel.</li>
+      <li>Open any ProDocStore-enabled docs site.</li>
+      <li>Click the <strong>ProDocStore</strong> toolbar icon. Chrome opens a side panel.</li>
       <li>The banner under the header shows the repo and source path resolved from the URL.</li>
       <li>Click the gear icon to open the options page and sign in with GitHub (one-time device-flow auth).</li>
       <li>Pick a backend (Claude, OpenAI) and start chatting.</li>
@@ -137,14 +137,14 @@
   <section id="updating">
     <h2>Updating</h2>
     <p><strong>Chrome Web Store install:</strong> Chrome auto-updates the extension in the background. Nothing to do.</p>
-    <p><strong>.zip install:</strong> download the new release, replace the unzipped folder in place, and click the <strong>Reload</strong> arrow on the FreeDocStore card in <code>chrome://extensions</code>.</p>
+    <p><strong>.zip install:</strong> download the new release, replace the unzipped folder in place, and click the <strong>Reload</strong> arrow on the ProDocStore card in <code>chrome://extensions</code>.</p>
   </section>
 
 </main>
 
 <footer>
-  <p>FreeDocStore - Install</p>
-  <p style="margin-top: 4px;">by FreeDocStore</p>
+  <p>ProDocStore - Install</p>
+  <p style="margin-top: 4px;">by ProDocStore</p>
 </footer>
 
 </body>

@@ -1,16 +1,16 @@
-# Adding Search to a FreeDocStore Doc Site
+# Adding Search to a ProDocStore Doc Site
 
 This is the canonical recipe for adding client-side search to any
-static doc site under `FreeDocStore`. It uses
+static doc site under `ProDocStore`. It uses
 [Pagefind](https://pagefind.app) - a wasm-based static-site search
 library - built in CI by the shared deploy workflow.
 
-Live examples: any FreeDocStore-deployed site with search enabled.
+Live examples: any ProDocStore-deployed site with search enabled.
 
 ## What you get
 
 - A search box at the right of the topbar with `Cmd+K` / `Ctrl+K` hotkey
-- FreeDocStore theme matching the rest of the UI (inherited from `styles.css`)
+- ProDocStore theme matching the rest of the UI (inherited from `styles.css`)
 - Sub-results that deep-link to in-page anchors
 - No external service, no API keys, no runtime backend
 - Index built fresh in CI on every deploy - never drifts from content
@@ -25,9 +25,9 @@ Assuming `docs/` is your deploy directory:
 
 ```sh
 mkdir -p docs/scripts
-curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/package.json     -o docs/package.json
-curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/scripts/add-heading-ids.mjs -o docs/scripts/add-heading-ids.mjs
-curl -fsSL https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/search/.gitignore       -o docs/.gitignore
+curl -fsSL https://raw.githubusercontent.com/ProDocStore-online/platform/main/templates/search/package.json     -o docs/package.json
+curl -fsSL https://raw.githubusercontent.com/ProDocStore-online/platform/main/templates/search/scripts/add-heading-ids.mjs -o docs/scripts/add-heading-ids.mjs
+curl -fsSL https://raw.githubusercontent.com/ProDocStore-online/platform/main/templates/search/.gitignore       -o docs/.gitignore
 ```
 
 Then update the `name` field in `docs/package.json` and generate the lockfile:
@@ -45,7 +45,7 @@ See `templates/search/snippet.html` for the three blocks to paste:
   after the `.topbar-links` nav
 - An init `<script>` and the `pagefind-ui.js` `<script>` just before `</body>`
 
-The FreeDocStore theme is already in the shared `styles.css` (under
+The ProDocStore theme is already in the shared `styles.css` (under
 `.site-search { ... }`) - no extra CSS needed.
 
 ### 3. Wire the build into CI
@@ -56,7 +56,7 @@ to the reusable workflow:
 ```yaml
 jobs:
   deploy:
-    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: your-pages-project
       fetch-brand-assets: true
@@ -136,7 +136,7 @@ The `.page-meta` styles for the footer block live in the shared
 
 ## Customizing
 
-- **Theme**: edit `.site-search` in the FreeDocStore `docs/styles.css`. Every
+- **Theme**: edit `.site-search` in the ProDocStore `docs/styles.css`. Every
   site that fetches the shared stylesheet picks up the change automatically.
 - **Hotkey**: edit the inline init script in `snippet.html`.
 - **Result count, fuzziness, etc.**: see the

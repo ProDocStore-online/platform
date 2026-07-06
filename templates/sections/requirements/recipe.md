@@ -37,7 +37,7 @@ A good requirements page has these subsections, in this order:
 - **An open question gets answered** - move it from Open Questions into the relevant subsection.
 - **A constraint changes** - budget cut, timeline shift, new compliance requirement. These ripple through everything else, so flag prominently.
 
-## FreeDocStore-specific notes
+## ProDocStore-specific notes
 
 - Render as a single `requirements.html` in `docs/`. Long requirements pages stay readable better than split-up ones because cross-references are simpler.
 - Number functional requirements with stable IDs (`FR-1`, `FR-2`) so other docs (architecture, epics, test plans) can cite them. IDs don't get renumbered when items are deleted - they stay associated with the original concept forever.

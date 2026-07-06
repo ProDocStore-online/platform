@@ -60,4 +60,4 @@ jobs:
           set -euo pipefail
           TAG="${{ inputs.tag }}"
           TAG="${TAG#v}"
-          node scripts/publish-cws.mjs "dist-zip/freedocstore-v${TAG}.zip"
+          node scripts/publish-cws.mjs "dist-zip/prodocstore-v${TAG}.zip"

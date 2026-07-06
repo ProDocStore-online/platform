@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "FreeDocStore AI Editor",
+  "name": "ProDocStore AI Editor",
   "version": "0.47.3",
   "description": "AI-first editor for GitHub-backed docs. Prompt for changes, review proposals, and use GitHub for manual edits.",
   "permissions": ["activeTab", "storage", "sidePanel", "scripting"],
@@ -25,7 +25,7 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "Open FreeDocStore AI editor"
+    "default_title": "Open ProDocStore AI editor"
   },
   "content_scripts": [
     {

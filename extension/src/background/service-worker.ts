@@ -4,7 +4,7 @@
 import { getAdapter } from "../adapters/base";
 import { loadStoredSettings, patchStoredSettings } from "../settings";
 import { GitHubClient } from "../lib/github";
-import { persistConversation } from "../lib/freedocstore-chat";
+import { persistConversation } from "../lib/prodocstore-chat";
 import { applyPendingProposal } from "../adapters/proposal-engine";
 import { loadPendingProposal, removePendingProposal } from "../lib/proposals";
 import { isValidRepoPath } from "../adapters/openai-tools";
@@ -42,7 +42,7 @@ function swDebug(payload: Record<string, unknown>): void {
     );
     void fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-freedocstore-debug": "1" },
+      headers: { "Content-Type": "application/json", "x-prodocstore-debug": "1" },
       body,
       keepalive: true,
     }).catch(() => {});
@@ -93,7 +93,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   // miss a sign-out (stale permissions cache) or a debug-sink toggle. Both
   // carry the same value, so a double-fire on a normal save is idempotent.
   if (area !== "sync" && area !== "local") return;
-  const change = changes["freedocstore.settings"];
+  const change = changes["prodocstore.settings"];
   if (!change) return;
   const oldClaude = (change.oldValue as { claude?: unknown } | undefined)?.claude;
   const newClaude = (change.newValue as { claude?: unknown } | undefined)?.claude;
@@ -242,14 +242,14 @@ chrome.runtime.onConnect.addListener((port) => {
   } catch {
     return; // production build or file unreadable
   }
-  console.log("[freedocstore:dev] auto-reload active, baseline =", baseline);
+  console.log("[prodocstore:dev] auto-reload active, baseline =", baseline);
   setInterval(async () => {
     try {
       const r = await fetch(url);
       if (!r.ok) return;
       const stamp = await r.text();
       if (stamp !== baseline) {
-        console.log("[freedocstore:dev] rebuild detected, reloading extension");
+        console.log("[prodocstore:dev] rebuild detected, reloading extension");
         chrome.runtime.reload();
       }
     } catch {
@@ -287,7 +287,7 @@ chrome.runtime.onMessage.addListener((msg: RuntimeMessage, sender, sendResponse)
       // dereferencing resp.payload. Convert any throw to a structured
       // error envelope the caller can render as a chat message.
       const detail = err instanceof Error ? err.message : String(err);
-      console.error("[freedocstore:bg] handler threw", { msgType: msg.type, detail });
+      console.error("[prodocstore:bg] handler threw", { msgType: msg.type, detail });
       swDebug({ event: "handler_error", msgType: msg.type, detail: detail.slice(0, 300) });
       try {
         sendResponse({
@@ -439,7 +439,7 @@ async function dispatchMessage(
     // stored mode. A shallow copy so we don't mutate the cached settings.
     const settings = msg.mode ? { ...loaded, mode: msg.mode } : loaded;
     const adapter = getAdapter(settings.adapter);
-    console.log("[freedocstore:bg] CHAT_TURN received", {
+    console.log("[prodocstore:bg] CHAT_TURN received", {
       adapter: settings.adapter,
       prompt: msg.prompt.slice(0, 80),
       historyCount: (msg.history ?? []).length,
@@ -567,7 +567,7 @@ async function dispatchMessage(
   // never handles. So the residual here is a real (non-never) union; we just
   // need to always reply so the sender's promise doesn't hang.
   const unhandled: { type: string } = msg;
-  console.warn("[freedocstore:bg] unknown message type", unhandled.type);
+  console.warn("[prodocstore:bg] unknown message type", unhandled.type);
   sendResponse({
     type: "ERROR_RESULT",
     payload: {

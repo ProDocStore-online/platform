@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════
 # Reusable secure-by-default Cloudflare Pages deployment
 #
-# Called by FreeDocStore knowledge-base repos. Guarantees:
+# Called by ProDocStore knowledge-base repos. Guarantees:
 #   1. Site deploys to Cloudflare Pages.
 #   2. Public KBs remain public by default.
 #   3. Protected KBs can opt into Cloudflare Access by supplying an email domain,
@@ -10,7 +10,7 @@
 # Usage in caller repo:
 #   jobs:
 #     deploy:
-#       uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
+#       uses: ProDocStore-online/platform/.github/workflows/deploy-pages.yml@main
 #       with:
 #         project-name: your-pages-project
 #       secrets: inherit
@@ -31,7 +31,7 @@ on:
         type: string
         default: "docs"
       fetch-brand-assets:
-        description: "Fetch shared brand assets (styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers) from FreeDocStore at deploy time. Default: true."
+        description: "Fetch shared brand assets (styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers) from ProDocStore at deploy time. Default: true."
         required: false
         type: boolean
         default: true
@@ -129,12 +129,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # FreeDocStore/platform is public, so the shared-asset fetch needs no
+      # ProDocStore-online/platform is public, so the shared-asset fetch needs no
       # authentication. Sparse-checkout pulls only the files we need.
-      - name: Fetch FreeDocStore assets
+      - name: Fetch ProDocStore assets
         uses: actions/checkout@v7
         with:
-          repository: FreeDocStore/platform
+          repository: ProDocStore-online/platform
           path: _playbook
           sparse-checkout: |
             docs/styles.css
@@ -164,14 +164,14 @@ jobs:
             esac
           done
           if [ "$rc" -ne 0 ]; then
-            echo "::error::Docs lint failed. See https://github.com/FreeDocStore/platform for playbook rules. Deploy blocked."
+            echo "::error::Docs lint failed. See https://github.com/ProDocStore-online/platform for playbook rules. Deploy blocked."
             exit "$rc"
           fi
 
       # Resolve feature flags. docs/features.json wins when a key is set;
       # missing keys fall through to the workflow inputs so older repos
       # that haven't adopted features.json keep working. Schema lives at
-      # templates/features.schema.json in FreeDocStore/platform.
+      # templates/features.schema.json in ProDocStore-online/platform.
       - name: Resolve feature flags (docs/features.json > workflow inputs)
         id: features
         run: |
@@ -226,7 +226,7 @@ jobs:
       - name: Copy security headers into deploy dir
         run: cp _playbook/templates/_headers "${{ inputs.deploy-dir }}/_headers"
 
-      # Run centralised generator scripts from FreeDocStore/platform.
+      # Run centralised generator scripts from ProDocStore-online/platform.
       - name: Generate changelog
         if: steps.features.outputs.changelog == 'true'
         run: node _playbook/templates/search/scripts/generate-changelog.mjs --repo .
@@ -287,7 +287,7 @@ jobs:
       - name: Inject branding
         run: node _playbook/templates/search/scripts/inject-branding.mjs --repo .
 
-      # Tells the FreeDocStore browser extension which GitHub repo backs
+      # Tells the ProDocStore browser extension which GitHub repo backs
       # this docs site. Always-on - the meta tag is small and harmless
       # for sites that don't use the extension. ${{ github.repository }}
       # resolves to "owner/name" of the calling repo, exactly what the
@@ -418,7 +418,7 @@ jobs:
       # ── 1c. Sync managed Access policies (allow + optional bypass) ──
       - name: Sync Access policies
         if: env.PROTECT_SITE == 'true' && steps.access.outputs.access_ready == 'true'
-        uses: FreeDocStore/platform/.github/actions/sync-access-policies@main
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
         with:
           app-id: ${{ steps.access.outputs.app_id }}
           cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -523,7 +523,7 @@ jobs:
 
       - name: Sync Access policies (first deploy)
         if: env.PROTECT_SITE == 'true' && steps.access.outputs.access_ready == 'false'
-        uses: FreeDocStore/platform/.github/actions/sync-access-policies@main
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
         with:
           app-id: ${{ steps.access-firstdeploy.outputs.app_id }}
           cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}

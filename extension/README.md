@@ -1,6 +1,6 @@
-# FreeDocStore browser extension
+# ProDocStore browser extension
 
-FreeDocStore is the AI-first editor for GitHub-backed public knowledge bases.
+ProDocStore is the AI-first editor for GitHub-backed public knowledge bases.
 It reads a published docs page, resolves the backing repository, and lets users
 ask for reviewable content proposals without adding an in-page manual editor.
 

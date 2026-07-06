@@ -2,7 +2,7 @@
   "name": "{{PROJECT_NAME}}-docs",
   "private": true,
   "version": "0.0.0",
-  "description": "FreeDocStore docs site. Static HTML + Pagefind search.",
+  "description": "ProDocStore docs site. Static HTML + Pagefind search.",
   "scripts": {
     "prebuild": "node scripts/add-heading-ids.mjs *.html",
     "build": "pagefind --site .",

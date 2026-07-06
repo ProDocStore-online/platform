@@ -192,7 +192,7 @@ export const REMEMBER_TOOL = {
   function: {
     name: "remember",
     description:
-      "Save a durable fact to the team's shared memory at .freedocstore/MEMORY.md. Use sparingly - only for things the team should remember across sessions and users (style decisions, project conventions, things to avoid, durable preferences). The user reviews and approves every memory entry before it's committed. Don't use this for one-off observations or anything visible from git history.",
+      "Save a durable fact to the team's shared memory at .prodocstore/MEMORY.md. Use sparingly - only for things the team should remember across sessions and users (style decisions, project conventions, things to avoid, durable preferences). The user reviews and approves every memory entry before it's committed. Don't use this for one-off observations or anything visible from git history.",
     parameters: {
       type: "object",
       properties: {

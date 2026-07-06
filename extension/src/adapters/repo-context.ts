@@ -1,5 +1,5 @@
 // Per-repo context the adapters load into the system prompt each chat turn:
-// the shared team memory (.freedocstore/MEMORY.md) and the recent-activity log.
+// the shared team memory (.prodocstore/MEMORY.md) and the recent-activity log.
 //
 // Both are fetched from GitHub and cached in a service-worker memory map
 // (lifetime = SW, TTL = 5 min) because they ride in the system prompt on EVERY
@@ -13,7 +13,7 @@ import type { GitHubClient, RecentCommit } from "../lib/github";
 import type { PendingProposal } from "../types";
 
 /** Shared per-repo memory file. Lives outside docs/ so it doesn't deploy. */
-export const MEMORY_PATH = ".freedocstore/MEMORY.md";
+export const MEMORY_PATH = ".prodocstore/MEMORY.md";
 
 // Match Claude Code's documented eager-load cap so the model anchors on
 // recent durable facts without burning context on a runaway memory file.
@@ -77,7 +77,7 @@ export function invalidateCachesAfterApply(
 }
 
 /**
- * Read .freedocstore/MEMORY.md from the repo. Returns null when the file
+ * Read .prodocstore/MEMORY.md from the repo. Returns null when the file
  * doesn't exist (unsigned-in users, KBs that haven't adopted memory
  * yet) and on transient fetch failures. Cached per-(owner/repo) for
  * 5 minutes since memory edits are infrequent compared to chat turns.
@@ -119,7 +119,7 @@ export function formatMemoryBlock(content: string | null): string {
     ? lines.slice(0, MEMORY_CAP_BYTES) + "\n[...memory truncated at 25KB...]"
     : lines;
   return [
-    "Shared team memory for this repo (.freedocstore/MEMORY.md):",
+    "Shared team memory for this repo (.prodocstore/MEMORY.md):",
     capped,
     "",
   ].join("\n");

@@ -293,10 +293,10 @@ export async function buildCreatePageProposalPreview(
   await upsertTask(task);
 
   const stored = await loadPendingProposal(proposalId);
-  // Menu tip depends on how the site builds its nav. HTML (FreeDocStore) sites use
+  // Menu tip depends on how the site builds its nav. HTML (ProDocStore) sites use
   // docs/nav.json (editable via update_nav_config). Markdown (MkDocs/Zensical/
   // Docusaurus) sites drive the menu from the generator's config or auto-nav -
-  // which FreeDocStore can't edit (it's outside docs/), so don't send the user
+  // which ProDocStore can't edit (it's outside docs/), so don't send the user
   // down a dead-end "add to nav.json" path there.
   const isMarkdown = /\.(md|mdx)$/i.test(path);
   const menuTip = isMarkdown

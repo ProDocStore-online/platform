@@ -74,10 +74,10 @@ Optional sections (add as needed):
 
 #### Topbar Logo
 
-Every doc site uses the FreeDocStore wordmark in the topbar:
+Every doc site uses the ProDocStore wordmark in the topbar:
 
 ```html
-<a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
+<a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
 ```
 
 ```css
@@ -85,7 +85,7 @@ Every doc site uses the FreeDocStore wordmark in the topbar:
 .topbar h1 a:hover .topbar-logo { color: var(--accent); }
 ```
 
-The wordmark inherits the topbar text color. The mark keeps the fixed FreeDocStore blue/coral/paper palette.
+The wordmark inherits the topbar text color. The mark keeps the fixed ProDocStore blue/coral/paper palette.
 
 ### Colors
 

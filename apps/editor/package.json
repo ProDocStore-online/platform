@@ -1,20 +1,20 @@
 {
-  "name": "freedocstore-editor",
+  "name": "prodocstore-editor",
   "private": true,
-  "description": "FreeDocStore Editor — self-serve Zensical knowledge-base publishing and AI-first Markdown editing.",
+  "description": "ProDocStore Editor — self-serve Zensical knowledge-base publishing and AI-first Markdown editing.",
   "packageManager": "pnpm@10.30.3",
   "engines": { "node": ">=22" },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FreeDocStore/platform.git",
+    "url": "git+https://github.com/ProDocStore-online/platform.git",
     "directory": "apps/editor"
   },
   "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
   "scripts": {
-    "dev": "pnpm --filter @freedocstore-editor/web dev",
-    "build": "pnpm --filter @freedocstore-editor/web build",
-    "preview": "pnpm --filter @freedocstore-editor/web preview",
-    "typecheck": "pnpm --filter @freedocstore-editor/web exec tsc -b",
-    "test": "pnpm --filter @freedocstore-editor/web exec tsc -b"
+    "dev": "pnpm --filter @prodocstore-editor/web dev",
+    "build": "pnpm --filter @prodocstore-editor/web build",
+    "preview": "pnpm --filter @prodocstore-editor/web preview",
+    "typecheck": "pnpm --filter @prodocstore-editor/web exec tsc -b",
+    "test": "pnpm --filter @prodocstore-editor/web exec tsc -b"
   }
 }

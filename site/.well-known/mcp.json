@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "freedocstore": {
+    "prodocstore": {
       "command": "npx",
-      "args": ["mcp-remote", "https://mcp.freedocstore.online/mcp"],
-      "url": "https://mcp.freedocstore.online/mcp",
-      "description": "FreeDocStore Zensical knowledge-base publishing MCP server"
+      "args": ["mcp-remote", "https://mcp.prodocstore.online/mcp"],
+      "url": "https://mcp.prodocstore.online/mcp",
+      "description": "ProDocStore Zensical knowledge-base publishing MCP server"
     }
   }
 }

@@ -37,7 +37,7 @@ const headed = (bodyExtra = "") => `<!DOCTYPE html>
 <body>
 <header class="topbar">
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
     <span class="badge">Project</span>
   </h1>
 </header>
@@ -167,7 +167,7 @@ test("rewriteLogo: replaces topbar-logo src", () => {
   const html = headed();
   const r = rewriteLogo(html, { logo: "custom.svg" });
   assert.equal(r.changed, true);
-  assert.match(r.html, /<img src="custom\.svg" alt="FreeDocStore" class="topbar-logo">/);
+  assert.match(r.html, /<img src="custom\.svg" alt="ProDocStore" class="topbar-logo">/);
 });
 
 test("rewriteLogo: replaces topbar-logo alt", () => {

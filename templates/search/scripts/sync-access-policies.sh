@@ -11,7 +11,7 @@
 #   APP_ID                 Cloudflare Access application ID
 #
 # Optional environment variables:
-#   EMAIL_DOMAIN   Primary employee email domain. Empty by default for public FreeDocStore KBs.
+#   EMAIL_DOMAIN   Primary employee email domain. Empty by default for public ProDocStore KBs.
 #   CLIENT_EMAILS  Comma-separated client email addresses to allow
 #   CLIENT_DOMAIN  Single client email domain to allow
 #   OFFICE_CIDRS   Comma-separated office CIDRs that bypass auth entirely
@@ -32,7 +32,7 @@ OFFICE_CIDRS="${OFFICE_CIDRS:-}"
 CURL="${CURL:-curl}"
 
 BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/access"
-ALLOW_NAME="Allow FreeDocStore users"
+ALLOW_NAME="Allow ProDocStore users"
 BYPASS_NAME="Office network bypass"
 
 # ── Build allow-policy include array ──

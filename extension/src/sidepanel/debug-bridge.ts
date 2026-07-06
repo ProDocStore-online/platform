@@ -54,7 +54,7 @@ export function postDebug(kind: string, payload: unknown): void {
     );
     void fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-freedocstore-debug": "1" },
+      headers: { "Content-Type": "application/json", "x-prodocstore-debug": "1" },
       body,
       keepalive: true,
     }).catch(() => {});
@@ -77,7 +77,7 @@ export function dlog(label: string, payload?: unknown): void {
     : `[${stamp}] ${label} ${JSON.stringify(payload)}`;
   logBuffer.push(line);
   if (logBuffer.length > LOG_LIMIT) logBuffer.splice(0, logBuffer.length - LOG_LIMIT);
-  console.log(`[freedocstore] ${label}`, payload ?? "");
+  console.log(`[prodocstore] ${label}`, payload ?? "");
   // Mirror the diagnostic line to the debug bridge (no-op when unset).
   postDebug("log", { label, payload });
 }

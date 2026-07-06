@@ -20,7 +20,7 @@ export function buildSessionDump(opts: {
   // becomes "<redacted>" so the dump is safe to paste elsewhere.
   const sanitized = redactSecrets(settings);
 
-  const sections: string[] = ["# FreeDocStore session dump", ""];
+  const sections: string[] = ["# ProDocStore session dump", ""];
 
   sections.push("## Context");
   if (ctx) {

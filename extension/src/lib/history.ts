@@ -3,7 +3,7 @@
 // The side panel keeps one conversation per (repo or origin), not one
 // global thread. This module owns the storage shape:
 //
-//   chrome.storage.local["freedocstore.history"]: { [scope]: ChatMessage[] }
+//   chrome.storage.local["prodocstore.history"]: { [scope]: ChatMessage[] }
 //
 // Scope key:
 //   "repo:owner/name"   - when the page resolves to a GitHub repo
@@ -19,7 +19,7 @@
 
 import type { ChatMessage, PageContext, PendingProposal } from "../types";
 
-export const HISTORY_KEY = "freedocstore.history";
+export const HISTORY_KEY = "prodocstore.history";
 export const HISTORY_LIMIT = 500;
 export const NO_CONTEXT_SCOPE = "__nocontext__";
 
@@ -42,7 +42,7 @@ export function scopeFromContext(ctx: PageContext | null): Scope {
  * Inverse of the `repo:` branch of scopeFromContext. Returns the owner +
  * name for a repo-backed scope, or null for origin/no-context scopes (which
  * have no repo to persist conversation logs into). Used by the side panel to
- * decide whether a conversation can be mirrored to `.freedocstore/chat/` in the
+ * decide whether a conversation can be mirrored to `.prodocstore/chat/` in the
  * backing repo.
  */
 export function repoFromScope(scope: Scope): { owner: string; name: string } | null {

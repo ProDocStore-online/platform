@@ -20,7 +20,7 @@ interface Env {
   DEFAULT_DOMAIN: string;
   MCP_OBJECT: DurableObjectNamespace;
   OAUTH_KV: KVNamespace;
-  FDS_API_KV?: KVNamespace;
+  PDS_API_KV?: KVNamespace;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
 }
@@ -88,8 +88,8 @@ function userKvKey(userId: string, key: string): string {
 }
 
 async function readWorkspace<T>(env: Env, userId: string | undefined, key: string): Promise<T | null> {
-  if (!userId || !env.FDS_API_KV) return null;
-  return env.FDS_API_KV.get<T>(userKvKey(userId, key), "json");
+  if (!userId || !env.PDS_API_KV) return null;
+  return env.PDS_API_KV.get<T>(userKvKey(userId, key), "json");
 }
 
 function renderDraft(draft: WorkspaceDraft): string {
@@ -97,7 +97,7 @@ function renderDraft(draft: WorkspaceDraft): string {
   return [
     `**${draft.title ?? "Untitled KB"}** (${draft.id ?? draft.slug ?? "unknown"})`,
     `Status: ${draft.lastStatus ?? "Draft"}`,
-    `Repo target: ${draft.owner ?? "FreeDocStore"}/${draft.slug ?? "unknown"}`,
+    `Repo target: ${draft.owner ?? "ProDocStore"}/${draft.slug ?? "unknown"}`,
     `Visibility: ${draft.visibility ?? "public"}`,
     `Repo URL: ${draft.repoUrl || "(not published)"}`,
     `Live URL: ${draft.liveUrl || (draft.slug ? `https://${draft.slug}.pages.dev/` : "(not set)")}`,
@@ -110,7 +110,7 @@ function renderDraft(draft: WorkspaceDraft): string {
 function requireWorkspaceWrite(env: Env, props: McpProps): string {
   if (!props?.userId) throw new Error("Not authenticated. Connect with GitHub OAuth first.");
   if (!props.scopes?.includes("write")) throw new Error("This MCP token does not include the write scope.");
-  if (!env.FDS_API_KV) throw new Error("FDS_API_KV is not bound to the MCP worker.");
+  if (!env.PDS_API_KV) throw new Error("PDS_API_KV is not bound to the MCP worker.");
   return props.userId;
 }
 
@@ -130,7 +130,7 @@ function sampleFiles(title: string, prompt: string, slug: string, customDomain =
   return [
     {
       path: "README.md",
-      content: `# ${title}\n\nFreeDocStore sample knowledge base created through MCP.\n\n- Engine: Zensical\n- Source: docs/\n- Production target: ${productionUrl}\n`,
+      content: `# ${title}\n\nProDocStore sample knowledge base created through MCP.\n\n- Engine: Zensical\n- Source: docs/\n- Production target: ${productionUrl}\n`,
     },
     {
       path: "zensical.toml",
@@ -149,7 +149,7 @@ function sampleFiles(title: string, prompt: string, slug: string, customDomain =
     },
     {
       path: "docs/index.md",
-      content: [`# ${title}`, "", prompt, "", "This draft was created through the FreeDocStore MCP server."].join("\n"),
+      content: [`# ${title}`, "", prompt, "", "This draft was created through the ProDocStore MCP server."].join("\n"),
     },
     {
       path: "docs/assessment.md",
@@ -200,9 +200,9 @@ function nextDraftSlug(existing: WorkspaceDraft[], preferred: string): string {
   return `${base}-${Date.now()}`;
 }
 
-export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
+export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
   server = new McpServer({
-    name: "FreeDocStore",
+    name: "ProDocStore",
     version: "0.2.0",
   });
 
@@ -211,7 +211,7 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
   async init() {
     this.server.tool(
       "whoami",
-      "Show the authenticated FreeDocStore MCP account.",
+      "Show the authenticated ProDocStore MCP account.",
       {},
       async () => txt(JSON.stringify({
         authenticated: Boolean(this.props?.userId),
@@ -226,15 +226,15 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
 
     this.server.tool(
       "workspace_summary",
-      "Show the signed-in FreeDocStore console workspace stored for this account.",
+      "Show the signed-in ProDocStore console workspace stored for this account.",
       {},
       async () => {
         if (!this.props?.userId) return txt("Not authenticated. Connect with GitHub OAuth first.");
-        if (!this.env.FDS_API_KV) return txt("FDS_API_KV is not bound to the MCP worker.");
+        if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
         const [settings, drafts, activeId] = await Promise.all([
-          readWorkspace<Record<string, unknown>>(this.env, this.props.userId, "fds:config:v1"),
-          readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "fds:kbs:v1"),
-          readWorkspace<string>(this.env, this.props.userId, "fds:active-kb:v1"),
+          readWorkspace<Record<string, unknown>>(this.env, this.props.userId, "pds:config:v1"),
+          readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "pds:kbs:v1"),
+          readWorkspace<string>(this.env, this.props.userId, "pds:active-kb:v1"),
         ]);
         const list = Array.isArray(drafts) ? drafts : [];
         const active = list.find((draft) => draft.id === activeId) ?? list[0];
@@ -267,21 +267,21 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
 
     this.server.tool(
       "list_workspace_drafts",
-      "List KB drafts saved in the signed-in FreeDocStore console workspace.",
+      "List KB drafts saved in the signed-in ProDocStore console workspace.",
       {},
       async () => {
         if (!this.props?.userId) return txt("Not authenticated. Connect with GitHub OAuth first.");
-        if (!this.env.FDS_API_KV) return txt("FDS_API_KV is not bound to the MCP worker.");
-        const drafts = await readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "fds:kbs:v1");
+        if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
+        const drafts = await readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "pds:kbs:v1");
         const list = Array.isArray(drafts) ? drafts : [];
-        if (!list.length) return txt("No KB drafts saved in this FreeDocStore workspace.");
+        if (!list.length) return txt("No KB drafts saved in this ProDocStore workspace.");
         return txt(`${list.length} workspace draft(s):\n\n${list.map(renderDraft).join("\n\n---\n\n")}`);
       },
     );
 
     this.server.tool(
       "create_workspace_draft",
-      "Create a FreeDocStore KB draft in the signed-in console workspace. This creates Zensical Markdown source files in the draft but does not publish a GitHub repo.",
+      "Create a ProDocStore KB draft in the signed-in console workspace. This creates Zensical Markdown source files in the draft but does not publish a GitHub repo.",
       {
         title: z.string().describe("Knowledge base title"),
         prompt: z.string().describe("What this KB should cover"),
@@ -291,7 +291,7 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
       },
       async ({ title, prompt, slug, custom_domain, visibility }) => {
         const userId = requireWorkspaceWrite(this.env, this.props);
-        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "fds:kbs:v1");
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "pds:kbs:v1");
         const drafts = Array.isArray(current) ? current : [];
         const draft = makeWorkspaceDraft({
           title,
@@ -301,40 +301,40 @@ export class FreeDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
           customDomain: custom_domain ?? "",
           visibility: visibility ?? "public",
         });
-        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:kbs:v1"), JSON.stringify([draft, ...drafts]));
-        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:active-kb:v1"), JSON.stringify(draft.id));
-        return txt(`Created FreeDocStore workspace draft via MCP.\n\n${renderDraft(draft)}`);
+        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
+        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:active-kb:v1"), JSON.stringify(draft.id));
+        return txt(`Created ProDocStore workspace draft via MCP.\n\n${renderDraft(draft)}`);
       },
     );
 
     this.server.tool(
       "create_sample_knowledge_base",
-      "Create a small sample FreeDocStore KB draft through MCP for smoke testing.",
+      "Create a small sample ProDocStore KB draft through MCP for smoke testing.",
       {},
       async () => {
         const userId = requireWorkspaceWrite(this.env, this.props);
-        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "fds:kbs:v1");
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "pds:kbs:v1");
         const drafts = Array.isArray(current) ? current : [];
         const title = "MCP Sample Knowledge Base";
         const draft = makeWorkspaceDraft({
           title,
-          prompt: "A small sample knowledge base created through MCP to verify FreeDocStore account visibility and draft creation.",
+          prompt: "A small sample knowledge base created through MCP to verify ProDocStore account visibility and draft creation.",
           slug: nextDraftSlug(drafts, "mcp-sample-knowledge-base"),
           owner: this.env.GITHUB_ORG,
         });
-        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:kbs:v1"), JSON.stringify([draft, ...drafts]));
-        await this.env.FDS_API_KV!.put(userKvKey(userId, "fds:active-kb:v1"), JSON.stringify(draft.id));
+        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
+        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:active-kb:v1"), JSON.stringify(draft.id));
         return txt(`Created sample KB draft via MCP.\n\n${renderDraft(draft)}`);
       },
     );
 
     this.server.tool(
       "platform_guide",
-      "Read the FreeDocStore publishing contract and current launch constraints.",
+      "Read the ProDocStore publishing contract and current launch constraints.",
       {},
-      async () => txt(`# FreeDocStore Platform Guide
+      async () => txt(`# ProDocStore Platform Guide
 
-FreeDocStore publishes knowledge bases from GitHub repositories using Zensical only.
+ProDocStore publishes knowledge bases from GitHub repositories using Zensical only.
 
 Current contract:
 - one GitHub repo per KB
@@ -362,7 +362,7 @@ Recommended first flow:
 
     this.server.tool(
       "list_knowledge_bases",
-      "List public FreeDocStore knowledge bases from the platform registry.",
+      "List registered ProDocStore knowledge bases from the platform registry.",
       {},
       async () => {
         const registry = await readRegistry(this.env.REGISTRY_URL);
@@ -375,7 +375,7 @@ Recommended first flow:
     this.server.tool(
       "knowledge_base_info",
       "Get repository, Zensical, Cloudflare, and domain metadata for one registered KB.",
-      { id: z.string().describe("Knowledge base id, e.g. true-non-profit") },
+      { id: z.string().describe("Knowledge base id, e.g. customer-handbook") },
       async ({ id }) => {
         const registry = await readRegistry(this.env.REGISTRY_URL);
         const kb = findKnowledgeBase(registry, id);
@@ -386,9 +386,9 @@ Recommended first flow:
 
     this.server.tool(
       "check_zensical_repo",
-      "Validate that a public GitHub repo matches the FreeDocStore Zensical contract.",
+      "Validate that a public GitHub repo matches the ProDocStore Zensical contract.",
       {
-        repo: z.string().describe("Repo as owner/name, or just name under the FreeDocStore org"),
+        repo: z.string().describe("Repo as owner/name, or just name under the ProDocStore org"),
         branch: z.string().optional().describe("Branch to inspect, default main"),
       },
       async ({ repo, branch }) => {
@@ -420,7 +420,7 @@ Recommended first flow:
       "list_files",
       "List files in a public KB repo.",
       {
-        repo: z.string().describe("Repo as owner/name, or just name under the FreeDocStore org"),
+        repo: z.string().describe("Repo as owner/name, or just name under the ProDocStore org"),
         branch: z.string().optional().describe("Branch to inspect, default main"),
       },
       async ({ repo, branch }) => {
@@ -435,7 +435,7 @@ Recommended first flow:
       "read_file",
       "Read one source file from a public KB repo.",
       {
-        repo: z.string().describe("Repo as owner/name, or just name under the FreeDocStore org"),
+        repo: z.string().describe("Repo as owner/name, or just name under the ProDocStore org"),
         path: z.string().describe("File path, e.g. docs/index.md"),
         branch: z.string().optional().describe("Branch to inspect, default main"),
       },
@@ -450,7 +450,7 @@ Recommended first flow:
     this.server.tool(
       "deploy_status",
       "Check the last five GitHub Actions runs for a KB repo.",
-      { repo: z.string().describe("Repo as owner/name, registered KB id, or repo name under FreeDocStore") },
+      { repo: z.string().describe("Repo as owner/name, registered KB id, or repo name under ProDocStore") },
       async ({ repo }) => {
         let fullRepo = repoFromInput(this.env, repo);
         const registry = await readRegistry(this.env.REGISTRY_URL);
@@ -466,7 +466,7 @@ Recommended first flow:
 
     this.server.tool(
       "publish_plan",
-      "Turn a knowledge-base topic/prompt into the concrete FreeDocStore repo, Zensical, Cloudflare, and custom-domain plan. This does not create resources yet.",
+      "Turn a knowledge-base topic/prompt into the concrete ProDocStore repo, Zensical, Cloudflare, and custom-domain plan. This does not create resources yet.",
       {
         title: z.string().describe("Knowledge base title"),
         prompt: z.string().describe("What the KB should cover"),
@@ -539,9 +539,9 @@ export default {
     if (url.pathname === "/" || url.pathname === "") {
       return new Response(
         [
-          "FreeDocStore MCP Server",
+          "ProDocStore MCP Server",
           "",
-          "Connect: npx mcp-remote https://mcp.freedocstore.online/mcp",
+          "Connect: npx mcp-remote https://mcp.prodocstore.online/mcp",
           "",
           "Zensical-only knowledge base publishing:",
           "- one GitHub repo per KB",
@@ -564,7 +564,7 @@ export default {
 
 const oauthProvider = new OAuthProvider({
   apiRoute: "/mcp",
-  apiHandler: FreeDocStoreMcp.serve("/mcp"),
+  apiHandler: ProDocStoreMcp.serve("/mcp"),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   defaultHandler: AuthHandler as any,
   authorizeEndpoint: "/authorize",

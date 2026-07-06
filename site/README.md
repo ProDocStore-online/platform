@@ -1,6 +1,6 @@
-# FreeDocStore - marketing site
+# ProDocStore - marketing site
 
-Public product site for FreeDocStore. Lives alongside `docs/`, `extension/`,
+Public product site for ProDocStore. Lives alongside `docs/`, `extension/`,
 `brand/`, `templates/` in this repo. Separate from `docs/` (which is the
 product's own documentation). Knowledge bases are separate Zensical GitHub
 repositories and are not embedded in this site.
@@ -24,9 +24,9 @@ site/
   index.html           landing page (single-page)
   styles.css           all styles
   assets/
-    logo-dark.svg      FreeDocStore wordmark copy for existing deploy scripts
+    logo-dark.svg      ProDocStore wordmark copy for existing deploy scripts
     logo.svg           original (uses currentColor, for reference)
-    favicon.svg        favicon (FreeDocStore document mark)
+    favicon.svg        favicon (ProDocStore document mark)
     monogram.svg       standalone brand mark
 ```
 

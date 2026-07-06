@@ -736,14 +736,14 @@ h1 {
 }
 
 .profile-card,
-.fds-profile-card {
+.pds-profile-card {
   display: flex;
   gap: 14px;
   align-items: center;
 }
 
 .profile-card h2,
-.fds-profile-card h2 {
+.pds-profile-card h2 {
   margin: 0 0 3px;
   font-size: 18px;
   font-weight: 760;
@@ -751,8 +751,8 @@ h1 {
 
 .profile-card p,
 .profile-card small,
-.fds-profile-card p,
-.fds-profile-card small {
+.pds-profile-card p,
+.pds-profile-card small {
   margin: 0;
   color: var(--muted);
   font-size: 12px;

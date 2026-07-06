@@ -76,7 +76,7 @@ test("slugify: empty/whitespace falls back to 'edit'", () => {
 test("branchName: includes date prefix and slug", () => {
   const fixed = new Date("2026-04-18T10:00:00Z");
   const b = branchName("Fix broken link", fixed);
-  assert.match(b, /^freedocstore\/2026-04-18\/fix-broken-link-[a-z0-9]{4}$/);
+  assert.match(b, /^prodocstore\/2026-04-18\/fix-broken-link-[a-z0-9]{4}$/);
 });
 
 test("describeOutcomes: formats applied and skipped distinctly", () => {

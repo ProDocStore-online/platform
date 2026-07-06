@@ -23,7 +23,7 @@ export function renderPreview(
 
   const targetPath =
     proposal.kind === "edit" ? proposal.path
-    : proposal.kind === "memory" ? ".freedocstore/MEMORY.md"
+    : proposal.kind === "memory" ? ".prodocstore/MEMORY.md"
     : (proposal.path ?? "docs/nav.json");
   const header = document.createElement("div");
   header.className = "preview-header";

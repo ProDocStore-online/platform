@@ -1,37 +1,37 @@
-name = "freedocstore-mcp"
+name = "prodocstore-mcp"
 main = "src/index.ts"
 compatibility_date = "2026-03-17"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[routes]]
-pattern = "mcp.freedocstore.online/*"
-zone_name = "freedocstore.online"
+pattern = "mcp.prodocstore.online/*"
+zone_name = "prodocstore.online"
 
 [vars]
-PUBLIC_BASE_URL = "https://freedocstore.online"
-REGISTRY_URL = "https://freedocstore.online/registry.json"
-GITHUB_ORG = "FreeDocStore"
+PUBLIC_BASE_URL = "https://prodocstore.online"
+REGISTRY_URL = "https://prodocstore.online/registry.json"
+GITHUB_ORG = "ProDocStore-online"
 PLATFORM_REPO = "platform"
 DEFAULT_DOMAIN = "pages.dev"
 # GitHub OAuth app client id. Callback URL:
-# https://mcp.freedocstore.online/callback
+# https://mcp.prodocstore.online/callback
 # Secret:
 # GITHUB_CLIENT_SECRET
 
 [durable_objects]
 bindings = [
-  { name = "MCP_OBJECT", class_name = "FreeDocStoreMcp" }
+  { name = "MCP_OBJECT", class_name = "ProDocStoreMcp" }
 ]
 
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "830d2d4668b745238b58a10dea5f0163"
+id = "c883b88e565b410abf9e25ed80c9b7ea"
 
 [[kv_namespaces]]
-binding = "FDS_API_KV"
-id = "7efa958454744e938ba2cf8e5439e71a"
+binding = "PDS_API_KV"
+id = "5872e9e5307d450985d985cb4a627a78"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["FreeDocStoreMcp"]
+new_sqlite_classes = ["ProDocStoreMcp"]

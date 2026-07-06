@@ -55,7 +55,7 @@ const CONTEXT = {
   url: "https://docs.example.com/",
   title: "Hello",
   sourcePath: SOURCE_PATH,
-  repo: { owner: "FreeDocStore", name: "freedocstore" },
+  repo: { owner: "ProDocStore", name: "prodocstore" },
   html: HTML,
   text: "Hello",
   navConfig: null,
@@ -225,7 +225,7 @@ test("openai adapter: create_page -> new-file preview then apply CREATES with no
 });
 
 test("create_page for a .md page gives a Markdown menu tip, not a nav.json dead end", async () => {
-  // The user's real case: FreeDocStore-test is a Markdown (Zensical/MkDocs) site.
+  // The user's real case: ProDocStore-test is a Markdown (Zensical/MkDocs) site.
   // update_nav_config edits docs/nav.json, which those generators don't use, so
   // the tip must not send the user there.
   const handlers = [
@@ -397,7 +397,7 @@ test("openai adapter: PR mode - applyPendingProposal opens the PR using stored p
     assert.ok(methods.some((m) => /POST .*\/pulls$/.test(m)), "apply should createPullRequest");
     const putCall = calls.find((c) => c.method === "PUT");
     const putBody = JSON.parse(putCall.body);
-    assert.match(putBody.branch, /^freedocstore\//, "PR mode pushes to feature branch");
+    assert.match(putBody.branch, /^prodocstore\//, "PR mode pushes to feature branch");
 
     const afterApply = await loadPendingProposal(proposalId);
     assert.equal(afterApply, null, "proposal should be removed after successful apply");
@@ -922,7 +922,7 @@ test("formatMemoryBlock: empty / null content -> empty string", () => {
 
 test("formatMemoryBlock: small content rendered with header", () => {
   const out = formatMemoryBlock("## Style\n- Use sentence case in headings.");
-  assert.match(out, /Shared team memory.*\.freedocstore\/MEMORY\.md/);
+  assert.match(out, /Shared team memory.*\.prodocstore\/MEMORY\.md/);
   assert.match(out, /## Style/);
   assert.match(out, /sentence case/);
 });
@@ -953,7 +953,7 @@ test("openai adapter: memory.md is fetched and injected before the activity log"
       },
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => ({
         body: {
           content: b64("## Style\n- always use sentence case"),
@@ -1070,7 +1070,7 @@ test("openai adapter: missing MEMORY.md is treated as empty (no header injected)
       },
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => ({ status: 404, body: { message: "Not Found" } }),
     ],
     [/\/repos\/[^/]+\/[^/]+\/commits/, () => ({ body: [] })],
@@ -1135,7 +1135,7 @@ test("openai adapter: remember tool produces a memory preview", async () => {
     ],
     // MEMORY.md doesn't exist yet
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => ({ status: 404, body: { message: "Not Found" } }),
     ],
     [/\/repos\/[^/]+\/[^/]+\/commits/, () => ({ body: [] })],
@@ -1164,7 +1164,7 @@ test("openai adapter: remember tool produces a memory preview", async () => {
   }
 });
 
-test("openai adapter: applyPendingProposal commits a memory entry to .freedocstore/MEMORY.md", async () => {
+test("openai adapter: applyPendingProposal commits a memory entry to .prodocstore/MEMORY.md", async () => {
   let putCall = null;
   const handlers = [
     [
@@ -1195,7 +1195,7 @@ test("openai adapter: applyPendingProposal commits a memory entry to .freedocsto
       () => ({ body: { content: b64(HTML), sha: "filesha", path: SOURCE_PATH, encoding: "base64" } }),
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       ({ init }) => {
         if (!init || init.method === "GET" || init.method === undefined) {
           return { status: 404, body: { message: "Not Found" } };
@@ -1230,10 +1230,10 @@ test("openai adapter: applyPendingProposal commits a memory entry to .freedocsto
     const result = await applyPendingProposal(stored, gh);
 
     assert.match(result.content, /PR opened/);
-    assert.match(result.content, /\.freedocstore\/MEMORY\.md/);
+    assert.match(result.content, /\.prodocstore\/MEMORY\.md/);
     assert.equal(result.attachment?.kind, "pr");
     // PUT body must NOT have a sha (it's a create, not an update).
-    assert.ok(putCall, "expected a PUT to /contents/.freedocstore/MEMORY.md");
+    assert.ok(putCall, "expected a PUT to /contents/.prodocstore/MEMORY.md");
     assert.equal(putCall.body.sha, undefined, "creating MEMORY.md should omit the sha field");
     // Body content (decoded from base64) should include the entry.
     const newContent = Buffer.from(putCall.body.content, "base64").toString("utf8");
@@ -1248,7 +1248,7 @@ test("openai adapter: applyPendingProposal commits a memory entry to .freedocsto
 
 test("mergeMemoryEntry: empty input creates a fresh skeleton with the entry", () => {
   const out = mergeMemoryEntry("", "Headings use sentence case.", "Style");
-  assert.match(out, /^# Shared FreeDocStore memory/);
+  assert.match(out, /^# Shared ProDocStore memory/);
   assert.match(out, /## Style\n- Headings use sentence case\./);
 });
 
@@ -1349,7 +1349,7 @@ test("openai adapter: applying a memory entry invalidates memoryCache", async ()
       () => ({ body: { content: b64(HTML), sha: "filesha", path: SOURCE_PATH, encoding: "base64" } }),
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       ({ init }) => {
         if (!init || init.method === "GET" || init.method === undefined) {
           memoryFetches++;
@@ -1405,7 +1405,7 @@ test("openai adapter: cache key includes auth fingerprint so accounts don't shar
       () => ({ body: { content: b64(HTML), sha: "filesha", path: SOURCE_PATH, encoding: "base64" } }),
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => {
         memoryFetches++;
         return { status: 404, body: { message: "Not Found" } };
@@ -1474,7 +1474,7 @@ test("openai adapter: edit-mode Apply invalidates activityCache (regression)", (
     [/git\/refs$/, () => ({ body: { ref: "refs/heads/feature" } })],
     [/\/pulls$/, () => ({ body: { number: 1, url: "api", html_url: "https://github.com/x/y/pull/1" } })],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => ({ status: 404, body: { message: "Not Found" } }),
     ],
     [
@@ -1527,12 +1527,12 @@ test("openai adapter: system context blocks stay in priority order (memory, addo
       },
     ],
     [
-      /\/contents\/\.freedocstore\/MEMORY\.md/,
+      /\/contents\/\.prodocstore\/MEMORY\.md/,
       () => ({
         body: {
           content: b64("## Style\n- always use sentence case"),
           sha: "memsha",
-          path: ".freedocstore/MEMORY.md",
+          path: ".prodocstore/MEMORY.md",
           encoding: "base64",
         },
       }),

@@ -14,7 +14,7 @@ for (const name of required) {
 }
 
 const zipPath = process.argv[2];
-if (!zipPath) fail("Usage: node scripts/publish-cws.mjs dist-zip/freedocstore-vX.Y.Z.zip");
+if (!zipPath) fail("Usage: node scripts/publish-cws.mjs dist-zip/prodocstore-vX.Y.Z.zip");
 if (!fs.existsSync(zipPath)) fail(`Zip not found: ${zipPath}`);
 
 const publisherId = process.env.CWS_PUBLISHER_ID;

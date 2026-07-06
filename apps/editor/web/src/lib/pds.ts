@@ -23,8 +23,8 @@ export interface SecretStatus {
   }
 }
 
-const API_BASE = (import.meta.env.VITE_FDS_API_BASE as string | undefined) || 'https://api.freedocstore.online'
-const THEME_KEY = 'fds:theme:v1'
+const API_BASE = (import.meta.env.VITE_PDS_API_BASE as string | undefined) || 'https://api.prodocstore.online'
+const THEME_KEY = 'pds:theme:v1'
 
 async function apiFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -50,7 +50,7 @@ function applyTheme(preference: ThemePreference) {
   else delete document.documentElement.dataset.theme
 }
 
-export const fds = {
+export const pds = {
   apiBase: API_BASE,
   kv: {
     async get<T>(key: string): Promise<T | null> {
@@ -133,16 +133,16 @@ export function useSubscription() {
   useEffect(() => {
     apiJson<{ status: string }>('/api/billing')
       .then((data) => setSubscription({ status: data.status }))
-      .catch(() => setSubscription({ status: 'free' }))
+      .catch(() => setSubscription({ status: 'trial' }))
       .finally(() => setLoading(false))
   }, [])
 
   return {
     subscription,
-    isPro: false,
+    isPro: subscription?.status === 'active' || subscription?.status === 'trial',
     loading,
     upgrade: async () => {
-      window.alert('Paid FreeDocStore plans are not enabled yet.')
+      window.alert('Paid ProDocStore plans are not enabled yet.')
     },
     manageBilling: async () => {
       window.alert('Billing management is not enabled yet.')

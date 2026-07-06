@@ -27,7 +27,7 @@ const syncBtn = $<HTMLButtonElement>("#sync-btn");
 
 let repoFilter = "";
 let personFilter = "";
-// Teammates' tasks pulled from the repo mirror (.freedocstore/tasks/*.json),
+// Teammates' tasks pulled from the repo mirror (.prodocstore/tasks/*.json),
 // merged with the local store on render. Populated by syncRemote(); empty
 // until the first sync completes so the board shows instantly from local.
 let remoteTasks: Task[] = [];
@@ -47,7 +47,7 @@ let showCancelled = false;
 // cancelled). Persisted so the choice sticks across opens.
 let view: "kanban" | "list" = "kanban";
 try {
-  const v = localStorage.getItem("freedocstore.board-view");
+  const v = localStorage.getItem("prodocstore.board-view");
   if (v === "list" || v === "kanban") view = v;
 } catch {
   /* localStorage blocked - default kanban */
@@ -415,7 +415,7 @@ async function setStatus(taskId: string, status: TaskStatus): Promise<void> {
 function setView(next: "kanban" | "list"): void {
   view = next;
   try {
-    localStorage.setItem("freedocstore.board-view", next);
+    localStorage.setItem("prodocstore.board-view", next);
   } catch {
     /* ignore */
   }

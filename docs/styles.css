@@ -1,6 +1,6 @@
-/* FreeDocStore - Shared Stylesheet
-   Source of truth: https://github.com/FreeDocStore/platform
-   Used by all FreeDocStore sites via build-time copy.
+/* ProDocStore - Shared Stylesheet
+   Source of truth: https://github.com/ProDocStore-online/platform
+   Used by all ProDocStore sites via build-time copy.
 */
 
 :root {
@@ -185,9 +185,9 @@ footer.standalone { margin-left: 0; }
 .page-meta__edit:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* --- Site search (Pagefind) ---
-   Themed to match the FreeDocStore UI defined above. Sites opt in by adding
+   Themed to match the ProDocStore UI defined above. Sites opt in by adding
    <div class="site-search" id="search"></div> in the topbar plus the
-   Pagefind UI assets. See FreeDocStore SEARCH.md for the full recipe.
+   Pagefind UI assets. See ProDocStore SEARCH.md for the full recipe.
 */
 .site-search {
   --pagefind-ui-scale: 0.65;

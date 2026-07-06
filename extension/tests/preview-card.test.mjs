@@ -83,7 +83,7 @@ test("memory proposal renders the entry under its section", () => {
     container,
     { onApply: () => {}, onCancel: () => {} },
   );
-  assert.equal(wrap.querySelector(".preview-header").textContent, ".freedocstore/MEMORY.md");
+  assert.equal(wrap.querySelector(".preview-header").textContent, ".prodocstore/MEMORY.md");
   assert.match(wrap.textContent, /Ops/);
   assert.match(wrap.textContent, /Deploys are gated on CI/);
 });

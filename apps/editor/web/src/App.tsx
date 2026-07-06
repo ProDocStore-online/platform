@@ -22,14 +22,14 @@ import {
   UserCircle,
   Wifi,
 } from 'lucide-react'
-import { fds as app, useAuth, useSubscription, useTheme, type SecretStatus, type Subscription, type User } from './lib/fds'
+import { pds as app, useAuth, useSubscription, useTheme, type SecretStatus, type Subscription, type User } from './lib/pds'
 
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
-const FDS_MCP = 'https://mcp.freedocstore.online/mcp'
-const CONFIG_KEY = 'fds:config:v1'
-const KBS_KEY = 'fds:kbs:v1'
-const ACTIVE_KB_KEY = 'fds:active-kb:v1'
+const PDS_MCP = 'https://mcp.prodocstore.online/mcp'
+const CONFIG_KEY = 'pds:config:v1'
+const KBS_KEY = 'pds:kbs:v1'
+const ACTIVE_KB_KEY = 'pds:active-kb:v1'
 
 type AppRoute = 'dashboard' | 'publish' | 'edit' | 'profile'
 type AuthProvider = 'github' | 'google'
@@ -113,21 +113,21 @@ const initialConnections: PlatformConnections = {
   github: 'unchecked',
   openai: 'needs-setup',
   cloudflare: 'ready',
-  detail: 'Save your OpenAI BYOK key once in your FreeDocStore account. Cloudflare deploy credentials live in platform/org secrets.',
+  detail: 'Save your OpenAI BYOK key once in your ProDocStore account. Cloudflare deploy credentials live in platform/org secrets.',
 }
 
 const starterPublish: PublishForm = {
-  title: 'True Non-Profit',
-  slug: 'true-non-profit',
-  owner: 'FreeDocStore',
+  title: 'Customer Knowledge Base',
+  slug: 'customer-knowledge-base',
+  owner: 'ProDocStore-online',
   customDomain: '',
-  visibility: 'public',
+  visibility: 'private',
   prompt:
-    'A first-principles knowledge base about non-profits, what they should be, how to assess trueness, and how to maintain a public evidence register.',
+    'A private staff knowledge base for onboarding, operating procedures, policies, and decision records.',
 }
 
 const starterEdit: EditForm = {
-  repo: 'FreeDocStore/true-non-profit',
+  repo: 'ProDocStore-online/customer-knowledge-base',
   branch: 'main',
   path: 'docs/index.md',
   instruction: 'Make this page clearer for a new reader while preserving the same factual claims.',
@@ -340,27 +340,27 @@ function EditorApp() {
   }
 
   useEffect(() => {
-    const saved = parseStoredJson<Partial<Settings>>(localStorage.getItem('fds-editor-settings'))
-    sessionStorage.removeItem('fds-editor-settings')
+    const saved = parseStoredJson<Partial<Settings>>(localStorage.getItem('pds-editor-settings'))
+    sessionStorage.removeItem('pds-editor-settings')
     if (saved) setSettings(normalizeSettings(saved))
-    const savedKbs = parseStoredJson<unknown>(localStorage.getItem('fds-kb-drafts'))
+    const savedKbs = parseStoredJson<unknown>(localStorage.getItem('pds-kb-drafts'))
     if (savedKbs) {
       const parsed = savedKbs
       if (Array.isArray(parsed) && parsed.length) {
         const normalized = parsed.map(normalizeKnowledgeBase)
         setKbs(normalized)
-        const storedActive = localStorage.getItem('fds-active-kb')
+        const storedActive = localStorage.getItem('pds-active-kb')
         setActiveKbId(normalized.some((kb) => kb.id === storedActive) ? storedActive || normalized[0].id : normalized[0].id)
       }
     } else {
-      const pub = parseStoredJson<Partial<PublishForm>>(localStorage.getItem('fds-publish-draft'))
+      const pub = parseStoredJson<Partial<PublishForm>>(localStorage.getItem('pds-publish-draft'))
       if (pub) {
         const legacy = createKnowledgeBase({ ...starterPublish, ...pub })
         setKbs([legacy])
         setActiveKbId(legacy.id)
       }
     }
-    const edit = parseStoredJson<Partial<EditForm>>(localStorage.getItem('fds-edit-draft'))
+    const edit = parseStoredJson<Partial<EditForm>>(localStorage.getItem('pds-edit-draft'))
     if (edit) setEditForm({ ...starterEdit, ...edit })
   }, [])
 
@@ -409,22 +409,22 @@ function EditorApp() {
   }, [activeKbId, kbs])
 
   useEffect(() => {
-    localStorage.setItem('fds-editor-settings', JSON.stringify(normalizeSettings(settings)))
+    localStorage.setItem('pds-editor-settings', JSON.stringify(normalizeSettings(settings)))
     if (user && platformLoaded) app.kv.set(CONFIG_KEY, normalizeSettings(settings)).catch((error) => setStatus(`Could not save platform settings: ${messageOf(error)}`))
   }, [platformLoaded, settings, user])
 
   useEffect(() => {
-    localStorage.setItem('fds-kb-drafts', JSON.stringify(kbs))
+    localStorage.setItem('pds-kb-drafts', JSON.stringify(kbs))
     if (user && platformLoaded) app.kv.set(KBS_KEY, kbs).catch((error) => setStatus(`Could not save platform KBs: ${messageOf(error)}`))
   }, [kbs, platformLoaded, user])
 
   useEffect(() => {
-    if (activeKbId) localStorage.setItem('fds-active-kb', activeKbId)
+    if (activeKbId) localStorage.setItem('pds-active-kb', activeKbId)
     if (user && platformLoaded && activeKbId) app.kv.set(ACTIVE_KB_KEY, activeKbId).catch(() => {})
   }, [activeKbId, platformLoaded, user])
 
   useEffect(() => {
-    localStorage.setItem('fds-edit-draft', JSON.stringify(editForm))
+    localStorage.setItem('pds-edit-draft', JSON.stringify(editForm))
   }, [editForm])
 
   const generatedSummary = useMemo(() => {
@@ -635,7 +635,7 @@ function EditorApp() {
   }
 
   const pageTitle = {
-    dashboard: 'FreeDocStore Console',
+    dashboard: 'ProDocStore Console',
     publish: 'Publish a knowledge base',
     edit: 'Edit Markdown with AI',
     profile: 'Profile and connections',
@@ -644,7 +644,7 @@ function EditorApp() {
     dashboard: 'See every knowledge base, prompt new drafts, and publish GitHub-backed Zensical books.',
     publish: 'Generate a GitHub-backed documentation repo, deploy it to Cloudflare Pages, and attach a custom domain.',
     edit: 'Load an existing Markdown file, ask for a replacement draft, and apply the change through GitHub.',
-    profile: 'Manage your FreeDocStore account, workspace, and publishing connections.',
+    profile: 'Manage your ProDocStore account, workspace, and publishing connections.',
   }[route]
 
   async function refreshSecrets() {
@@ -655,7 +655,7 @@ function EditorApp() {
       openai: next.openai.configured ? current.openai : 'needs-setup',
       detail: next.openai.configured
         ? current.detail
-        : 'OpenAI generation uses your BYOK key. Save it once in your FreeDocStore account before prompting KBs.',
+        : 'OpenAI generation uses your BYOK key. Save it once in your ProDocStore account before prompting KBs.',
     }))
   }
 
@@ -860,7 +860,7 @@ function EditorApp() {
       <main className="app-shell">
         <header className="workspace-head">
           <div>
-            <p className="eyebrow">FreeDocStore workspace</p>
+            <p className="eyebrow">ProDocStore workspace</p>
             <h1>{pageTitle}</h1>
             <p className="lede">{pageCopy}</p>
           </div>
@@ -875,7 +875,7 @@ function EditorApp() {
         </header>
         {content}
         <footer className="store-footer">
-          FreeDocStore publishes Markdown knowledge bases as Zensical books from GitHub repos.
+          ProDocStore publishes Markdown knowledge bases as Zensical books from GitHub repos.
         </footer>
       </main>
       <MobileTabBar route={route} navigate={navigate} />
@@ -896,8 +896,8 @@ function SignedOutLanding({ signIn }: { signIn: (provider?: AuthProvider) => voi
   return (
     <main className="auth-screen auth-landing">
       <div className="auth-card">
-        <span className="brand-mark large">F</span>
-        <p className="eyebrow">FreeDocStore Console</p>
+        <span className="brand-mark large">P</span>
+        <p className="eyebrow">ProDocStore Console</p>
         <h1>Prompt and publish knowledge bases.</h1>
         <p className="lede">Sign in to see your KBs, prompt new Zensical Markdown books, publish them on Cloudflare Pages, and manage custom domains.</p>
         <div className="auth-actions">
@@ -909,9 +909,9 @@ function SignedOutLanding({ signIn }: { signIn: (provider?: AuthProvider) => voi
             <Github size={17} />
             Continue with GitHub
           </button>
-          <a className="secondary-action as-link" href="https://freedocstore.online/" target="_blank" rel="noreferrer">
+          <a className="secondary-action as-link" href="https://prodocstore.online/" target="_blank" rel="noreferrer">
             <ExternalLink size={17} />
-            Open FreeDocStore
+            Open ProDocStore
           </a>
         </div>
       </div>
@@ -939,10 +939,10 @@ function StoreHeader({
   return (
     <header className="store-topbar">
       <div className="store-topbar-inner">
-        <button className="brand-lockup" type="button" onClick={() => navigate('dashboard')} aria-label="FreeDocStore dashboard">
-          <span className="brand-mark">F</span>
+        <button className="brand-lockup" type="button" onClick={() => navigate('dashboard')} aria-label="ProDocStore dashboard">
+          <span className="brand-mark">P</span>
           <span>
-            <strong>FreeDocStore</strong>
+            <strong>ProDocStore</strong>
             <small>Console</small>
           </span>
         </button>
@@ -988,7 +988,7 @@ function AppNav({ route, navigate }: { route: AppRoute; navigate: (route: AppRou
         <UserCircle size={17} />
         Profile
       </button>
-      <a className="mode link-mode" href={FDS_MCP} target="_blank" rel="noreferrer">
+      <a className="mode link-mode" href={PDS_MCP} target="_blank" rel="noreferrer">
         <ShieldCheck size={17} />
         MCP
       </a>
@@ -1053,7 +1053,7 @@ function DashboardPage({
             <LayoutDashboard size={18} />
             <div>
               <h2>Workspace</h2>
-              <p>Prompt, publish, and manage the KBs saved to your FreeDocStore account.</p>
+              <p>Prompt, publish, and manage the KBs saved to your ProDocStore account.</p>
             </div>
           </div>
           <div className="metric-grid">
@@ -1211,7 +1211,7 @@ function SettingsPanel({
         <div>
           <span>OpenAI API key</span>
           <strong>{openAiKeyStatus}</strong>
-          <p>Encrypted in your FreeDocStore account and used server-side for all KB generation and AI edits.</p>
+          <p>Encrypted in your ProDocStore account and used server-side for all KB generation and AI edits.</p>
         </div>
         {manageKeys && secrets.openai.configured && onClearOpenAiKey ? (
           <button className="secondary-action danger-action" type="button" onClick={onClearOpenAiKey}>
@@ -1324,7 +1324,7 @@ function ProfilePage({
   onUpdate: () => void
 }) {
   async function confirmDeleteAccount() {
-    const first = window.confirm('Delete your FreeDocStore account data across platform apps? This cannot be undone.')
+    const first = window.confirm('Delete your ProDocStore account data across platform apps? This cannot be undone.')
     if (!first) return
     const second = window.confirm('Last confirmation: permanently delete this account?')
     if (!second) return
@@ -1334,7 +1334,7 @@ function ProfilePage({
   return (
     <div className="profile-grid">
       <section className="panel">
-        <div className="section-block fds-profile-card">
+        <div className="section-block pds-profile-card">
           {user.avatarUrl ? (
             <img className="profile-avatar" src={user.avatarUrl} alt="" />
           ) : (
@@ -1342,7 +1342,7 @@ function ProfilePage({
           )}
           <div>
             <h2>{displayName(user)}</h2>
-            <p>FreeDocStore account</p>
+            <p>ProDocStore account</p>
             <small>Account ID: {user.id}</small>
           </div>
         </div>
@@ -1402,13 +1402,13 @@ function ProfilePage({
           <div className="section-title">
             <UserCircle size={18} />
             <div>
-              <h2>FreeDocStore workspace</h2>
-              <p>Knowledge-base publishing data stored for this FreeDocStore account.</p>
+              <h2>ProDocStore workspace</h2>
+              <p>Knowledge-base publishing data stored for this ProDocStore account.</p>
             </div>
           </div>
           <div className="metric-grid">
             <div><span>Drafts</span><strong>{kbs.length}</strong></div>
-            <div><span>App</span><strong>FreeDocStore</strong></div>
+            <div><span>App</span><strong>ProDocStore</strong></div>
             <div><span>Engine</span><strong>Zensical</strong></div>
           </div>
         </div>
@@ -1722,7 +1722,7 @@ function plannedRepoPreview(form: PublishForm): RepoFile[] {
       content: [
         `# ${title}`,
         '',
-        form.prompt || 'Describe the knowledge base you want to publish. FreeDocStore will generate Markdown source files for a Zensical book.',
+        form.prompt || 'Describe the knowledge base you want to publish. ProDocStore will generate Markdown source files for a Zensical book.',
       ].join('\n'),
     },
     {
@@ -1751,7 +1751,7 @@ function plannedRepoPreview(form: PublishForm): RepoFile[] {
       content: [
         `# ${title}`,
         '',
-        'FreeDocStore knowledge base.',
+        'ProDocStore knowledge base.',
         '',
         '- Engine: Zensical',
         '- Source: `docs/`',
@@ -1811,7 +1811,7 @@ function Field({
 async function generateKbFiles(settings: Settings, form: PublishForm): Promise<RepoFile[]> {
   const workflow = deployWorkflow(form.slug, form.customDomain)
   const system = [
-    'You generate FreeDocStore knowledge bases.',
+    'You generate ProDocStore knowledge bases.',
     'Only output GitHub repo source files for a Zensical project.',
     'Do not output generated HTML or static site output.',
     'Use Markdown under docs/, zensical.toml at the repo root, and a concise README.',
@@ -1892,7 +1892,7 @@ async function createRepo(form: PublishForm) {
     headers: githubHeaders(),
     body: JSON.stringify({
       name: form.slug,
-      description: `${form.title} - FreeDocStore Zensical knowledge base`,
+      description: `${form.title} - ProDocStore Zensical knowledge base`,
       private: form.visibility === 'private',
       auto_init: true,
       homepage: form.customDomain ? `https://${form.customDomain}/` : `https://${form.slug}.pages.dev/`,
@@ -1981,7 +1981,7 @@ jobs:
           node-version: 22
       - run: python -m pip install zensical
       - run: python -m zensical build --strict
-      - name: Inject FreeDocStore source metadata
+      - name: Inject ProDocStore source metadata
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -2055,7 +2055,7 @@ function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: str
   next = upsertFile(next, '.github/workflows/deploy.yml', workflow)
   next = upsertFile(next, '.gitignore', 'site/\n.cache/\n.DS_Store\n')
   if (!next.some((file) => file.path === 'README.md')) {
-    next.push({ path: 'README.md', content: `# ${form.title}\n\nFreeDocStore Zensical knowledge base.\n\nSource lives in \`docs/\` and builds with \`python -m zensical build --strict\`.\n` })
+    next.push({ path: 'README.md', content: `# ${form.title}\n\nProDocStore Zensical knowledge base.\n\nSource lives in \`docs/\` and builds with \`python -m zensical build --strict\`.\n` })
   }
   const zensicalIndex = next.findIndex((file) => file.path === 'zensical.toml')
   if (zensicalIndex >= 0) {
@@ -2104,7 +2104,7 @@ function validateByok(secrets: SecretStatus) {
 }
 
 function validatePlatformAccess(user: unknown) {
-  if (!user) throw new Error('Sign in to FreeDocStore before publishing or editing.')
+  if (!user) throw new Error('Sign in to ProDocStore before publishing or editing.')
 }
 
 function githubHeaders() {

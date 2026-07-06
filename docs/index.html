@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FreeDocStore - the documentation standard your AI agents can read</title>
+<title>ProDocStore - the documentation standard your AI agents can read</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,8 +12,8 @@
 <header class="topbar">
   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
-    <span class="badge">FreeDocStore</span>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
+    <span class="badge">ProDocStore</span>
   </h1>
   <nav class="topbar-links">
     <a href="components.html">Components</a>
@@ -40,8 +40,8 @@
   <!-- ABOUT -->
   <section id="about">
     <h2>What Is This</h2>
-    <p><strong>FreeDocStore</strong> is an open-source documentation standard for the agent era. Your AI writes code; this is how it documents what it built so humans can read, approve, and steer.</p>
-    <p>Hand-written HTML. Zero build step. A browser extension that reads the same source agents do. This site is itself built with the template it documents - what you see here is what every FreeDocStore-enabled site looks like.</p>
+    <p><strong>ProDocStore</strong> is an open-source documentation standard for the agent era. Your AI writes code; this is how it documents what it built so humans can read, approve, and steer.</p>
+    <p>Hand-written HTML. Zero build step. A browser extension that reads the same source agents do. This site is itself built with the template it documents - what you see here is what every ProDocStore-enabled site looks like.</p>
 
     <div class="grid-2">
       <div class="card highlight">
@@ -56,7 +56,7 @@
       <div class="card highlight">
         <h4>How to Start a New Site</h4>
         <ol>
-          <li>Copy <code>docs/index.html</code> from FreeDocStore</li>
+          <li>Copy <code>docs/index.html</code> from ProDocStore</li>
           <li>Change the badge text and page title</li>
           <li>Replace sidebar nav groups with your sections</li>
           <li>Fill in your content using the <a href="components.html">components</a></li>
@@ -100,10 +100,10 @@
 mkdir docs
 
 # 2. Copy required files
-cp freedocstore/docs/index.html your-project/docs/index.html
-cp freedocstore/docs/logo.svg your-project/docs/logo.svg
-cp freedocstore/templates/robots.txt your-project/docs/robots.txt
-cp freedocstore/templates/_headers your-project/docs/_headers
+cp prodocstore/docs/index.html your-project/docs/index.html
+cp prodocstore/docs/logo.svg your-project/docs/logo.svg
+cp prodocstore/templates/robots.txt your-project/docs/robots.txt
+cp prodocstore/templates/_headers your-project/docs/_headers
 
 # 3. Update the title and badge
 #    Change &lt;title&gt; and the .badge text
@@ -113,7 +113,7 @@ cp freedocstore/templates/_headers your-project/docs/_headers
 
 # 5. Set up deploy workflow
 mkdir -p .github/workflows
-cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
+cp prodocstore/templates/workflows/docs-deploy.yml .github/workflows/
 #    Edit docs-deploy.yml: change project-name to your repo name
 
 # 6. Push to main - deploys automatically
@@ -129,7 +129,7 @@ cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
   <!-- SITE CHECKLIST -->
   <section id="checklist">
     <h2>Site Checklist</h2>
-    <p>Every FreeDocStore-enabled site <strong>must</strong> have all of the following. Use this as a pre-flight check before deploying a new site or auditing an existing one.</p>
+    <p>Every ProDocStore-enabled site <strong>must</strong> have all of the following. Use this as a pre-flight check before deploying a new site or auditing an existing one.</p>
 
     <h3>Required Files</h3>
     <div class="card highlight">
@@ -137,12 +137,12 @@ cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
         <table>
           <thead><tr><th>File</th><th>Purpose</th><th>Template</th></tr></thead>
           <tbody>
-            <tr><td><code>docs/index.html</code></td><td>Main site content</td><td>Copy from FreeDocStore</td></tr>
-            <tr><td><code>docs/styles.css</code></td><td>Shared stylesheet (or use <code>fetch-brand-assets: true</code> in deploy)</td><td>Auto-fetched or copied from FreeDocStore</td></tr>
-            <tr><td><code>docs/logo.svg</code></td><td>Wordmark logo for topbar</td><td>Auto-fetched or copied from FreeDocStore</td></tr>
+            <tr><td><code>docs/index.html</code></td><td>Main site content</td><td>Copy from ProDocStore</td></tr>
+            <tr><td><code>docs/styles.css</code></td><td>Shared stylesheet (or use <code>fetch-brand-assets: true</code> in deploy)</td><td>Auto-fetched or copied from ProDocStore</td></tr>
+            <tr><td><code>docs/logo.svg</code></td><td>Wordmark logo for topbar</td><td>Auto-fetched or copied from ProDocStore</td></tr>
             <tr><td><code>docs/robots.txt</code></td><td>Block search engine crawlers (defence-in-depth behind Access)</td><td><code>User-agent: *\nDisallow: /</code></td></tr>
             <tr><td><code>docs/_headers</code></td><td>Security response headers (X-Frame-Options, CSP, etc.)</td><td>See below</td></tr>
-            <tr><td><code>.github/workflows/docs-deploy.yml</code></td><td>Calls the reusable deploy workflow, triggers on push to main</td><td>Copy from freedocstore/templates/workflows/</td></tr>
+            <tr><td><code>.github/workflows/docs-deploy.yml</code></td><td>Calls the reusable deploy workflow, triggers on push to main</td><td>Copy from prodocstore/templates/workflows/</td></tr>
           </tbody>
         </table>
       </div>
@@ -180,7 +180,7 @@ cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
       <pre><code>&lt;header class="topbar"&gt;
   &lt;button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu"&gt;&amp;#9776;&lt;/button&gt;
   &lt;h1&gt;
-    &lt;a href="index.html"&gt;&lt;img src="logo.svg" alt="FreeDocStore" class="topbar-logo"&gt;&lt;/a&gt;
+    &lt;a href="index.html"&gt;&lt;img src="logo.svg" alt="ProDocStore" class="topbar-logo"&gt;&lt;/a&gt;
     &lt;span class="badge"&gt;YOUR PROJECT&lt;/span&gt;
   &lt;/h1&gt;
 &lt;/header&gt;</code></pre>
@@ -209,9 +209,9 @@ cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
           <thead><tr><th>Check</th><th>Standard</th></tr></thead>
           <tbody>
             <tr><td>Badge text</td><td>Project name, consistent across all pages of the same site</td></tr>
-            <tr><td>Shared stylesheet</td><td>Use <code>styles.css</code> from FreeDocStore (linked or fetched at deploy time)</td></tr>
+            <tr><td>Shared stylesheet</td><td>Use <code>styles.css</code> from ProDocStore (linked or fetched at deploy time)</td></tr>
             <tr><td>Topbar chapter links (multi-page)</td><td>Same links on every page, <code>.active</code> on current page</td></tr>
-            <tr><td>Footer</td><td>Centered, simple attribution to FreeDocStore</td></tr>
+            <tr><td>Footer</td><td>Centered, simple attribution to ProDocStore</td></tr>
             <tr><td>Color palette</td><td>Use CSS variables from <code>styles.css</code>, never hardcode colors</td></tr>
             <tr><td>Responsive</td><td>Sidebar collapses at 900px, hamburger menu appears, grids collapse</td></tr>
           </tbody>
@@ -221,14 +221,14 @@ cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/
 
     <div class="callout">
       <div class="callout-label">docs/ must be self-contained</div>
-      <p style="margin:0;"><strong>Never place publishing-related files outside <code>docs/</code>.</strong> No build scripts, generators, assets, or stylesheets in the repo root. The repo root is for project code. Generators (changelog, sitemap, page-meta) live in FreeDocStore and run centrally via the reusable workflow - do not copy them into individual repos. The only file outside <code>docs/</code> is <code>.github/workflows/docs-deploy.yml</code>, which GitHub requires in its standard location.</p>
+      <p style="margin:0;"><strong>Never place publishing-related files outside <code>docs/</code>.</strong> No build scripts, generators, assets, or stylesheets in the repo root. The repo root is for project code. Generators (changelog, sitemap, page-meta) live in ProDocStore and run centrally via the reusable workflow - do not copy them into individual repos. The only file outside <code>docs/</code> is <code>.github/workflows/docs-deploy.yml</code>, which GitHub requires in its standard location.</p>
     </div>
   </section>
 
 </main>
 
 <footer>
-  FreeDocStore &middot; by FreeDocStore
+  ProDocStore &middot; by ProDocStore
 </footer>
 
 <script>

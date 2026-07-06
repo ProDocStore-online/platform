@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────
-# docs-lint.sh - run FreeDocStore compliance checks against a repo.
+# docs-lint.sh - run ProDocStore compliance checks against a repo.
 #
 # This is the same logic driven by .github/workflows/docs-lint.yml,
 # extracted so it can be run locally and unit-tested in isolation.

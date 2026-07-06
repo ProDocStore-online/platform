@@ -126,7 +126,7 @@ export function createDictation(opts: DictationOptions): DictationHandle {
     const log = (label: string, payload?: unknown) => {
       // Log to the side panel devtools console with a recognisable
       // prefix so it's easy to grep when diagnosing mic issues.
-      console.log(`[freedocstore:mic] ${label}`, payload ?? "");
+      console.log(`[prodocstore:mic] ${label}`, payload ?? "");
     };
     log("probeMic start", {
       micGranted,

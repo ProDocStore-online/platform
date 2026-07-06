@@ -204,7 +204,7 @@ function buildLineDiff(before, after) {
 }
 
 function restoreSession() {
-  const saved = JSON.parse(sessionStorage.getItem("freedocstore-editor") || "{}");
+  const saved = JSON.parse(sessionStorage.getItem("prodocstore-editor") || "{}");
   for (const [id, value] of Object.entries(saved)) {
     const el = $(id);
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = String(value);
@@ -221,7 +221,7 @@ function persistSession() {
     "github-token": githubTokenEl.value,
     "openai-key": openaiKeyEl.value,
   };
-  sessionStorage.setItem("freedocstore-editor", JSON.stringify(data));
+  sessionStorage.setItem("prodocstore-editor", JSON.stringify(data));
 }
 
 function showError(err) {

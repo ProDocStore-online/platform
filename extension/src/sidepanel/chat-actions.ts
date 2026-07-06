@@ -14,7 +14,7 @@ import { clearChatBtn, copyChatBtn, messagesEl } from "./dom-refs";
 import { bumpTurnId, history, scrollByScope, state } from "./state";
 
 const CLEAR_TITLE =
-  "Clear the chat on this device. The copy saved to GitHub (freedocstore-chat branch) is not removed — see Options for how to clear that.";
+  "Clear the chat on this device. The copy saved to GitHub (prodocstore-chat branch) is not removed — see Options for how to clear that.";
 
 /** Reset the two-click Clear confirm (called on menu close via the pop hook). */
 export function disarmClear(): void {

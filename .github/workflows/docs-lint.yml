@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════
 # Reusable docs compliance linter
 #
-# Checks a repo against FreeDocStore best practices before merge:
+# Checks a repo against ProDocStore best practices before merge:
 #   - No brand assets tracked in docs/ (they're injected at deploy time)
 #   - Workflow is named docs-deploy.yml (not deploy.yml)
 #   - Pages with standard topbar link to shared styles.css
@@ -14,9 +14,9 @@
 #       paths: ['docs/**', '.github/workflows/**']
 #   jobs:
 #     lint:
-#       uses: FreeDocStore/platform/.github/workflows/docs-lint.yml@main
+#       uses: ProDocStore-online/platform/.github/workflows/docs-lint.yml@main
 #
-# No secrets required - FreeDocStore/platform is public, so the lint script is
+# No secrets required - ProDocStore-online/platform is public, so the lint script is
 # fetched via a regular unauthenticated checkout.
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -49,14 +49,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # FreeDocStore/platform is public, so fetching the lint script needs
+      # ProDocStore-online/platform is public, so fetching the lint script needs
       # no authentication. Sparse-checkout pulls only what we need.
-      - name: Check out FreeDocStore platform (for shared lint script)
+      - name: Check out ProDocStore platform (for shared lint script)
         uses: actions/checkout@v7
         with:
-          repository: FreeDocStore/platform
+          repository: ProDocStore-online/platform
           ref: main
-          path: .freedocstore
+          path: .prodocstore
           sparse-checkout: |
             templates/search/scripts/
 
@@ -68,7 +68,7 @@ jobs:
         run: |
           set -uo pipefail
           # Stream FAIL/WARN lines back as GitHub annotations.
-          out=$(bash .freedocstore/templates/search/scripts/docs-lint.sh) || rc=$?
+          out=$(bash .prodocstore/templates/search/scripts/docs-lint.sh) || rc=$?
           rc=${rc:-0}
           echo "$out" | while IFS= read -r line; do
             case "$line" in
@@ -78,6 +78,6 @@ jobs:
             esac
           done
           if [ "$rc" -ne 0 ]; then
-            echo "::error::Docs lint failed. See https://github.com/FreeDocStore/platform for playbook rules."
+            echo "::error::Docs lint failed. See https://github.com/ProDocStore-online/platform for playbook rules."
             exit "$rc"
           fi

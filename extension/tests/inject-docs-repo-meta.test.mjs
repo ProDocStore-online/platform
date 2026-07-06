@@ -28,7 +28,7 @@ const headed = (extraHead = "") => `<!DOCTYPE html>
 
 test("isValidDocsRepo accepts standard owner/name", () => {
   assert.equal(isValidDocsRepo("acme/docs"), true);
-  assert.equal(isValidDocsRepo("FreeDocStore/freedocstore"), true);
+  assert.equal(isValidDocsRepo("ProDocStore/prodocstore"), true);
 });
 
 test("isValidDocsRepo accepts dotted, hyphenated, underscored names", () => {

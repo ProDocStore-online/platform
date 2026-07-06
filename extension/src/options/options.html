@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FreeDocStore - Options</title>
+<title>ProDocStore - Options</title>
 <link rel="stylesheet" href="options.css">
 </head>
 <body>
 
 <header>
-  <h1>FreeDocStore - Options</h1>
+  <h1>ProDocStore - Options</h1>
   <p class="subtitle">All settings are stored in <code>chrome.storage.sync</code>. Encrypted at rest by Chrome; scoped to this browser profile.</p>
 </header>
 
@@ -96,14 +96,14 @@
         <small>
           The 🗑 button in the side panel clears the chat on <strong>this
           device only</strong>. Conversations are also mirrored to your repo at
-          <code>.freedocstore/chat/history.json</code> on the
-          <code>freedocstore-chat</code> branch (so teammates and Claude Code see
+          <code>.prodocstore/chat/history.json</code> on the
+          <code>prodocstore-chat</code> branch (so teammates and Claude Code see
           the same context). To remove that copy, do it in GitHub:
         </small>
         <ul class="hint-list">
-          <li>Delete <code>.freedocstore/chat/history.json</code> on the
-            <code>freedocstore-chat</code> branch (a new commit), or</li>
-          <li>Delete the whole <code>freedocstore-chat</code> branch to drop all of
+          <li>Delete <code>.prodocstore/chat/history.json</code> on the
+            <code>prodocstore-chat</code> branch (a new commit), or</li>
+          <li>Delete the whole <code>prodocstore-chat</code> branch to drop all of
             it, including past versions retained in that branch's git history.</li>
         </ul>
         <small>Note: deleting the file leaves earlier versions in the branch's
@@ -158,7 +158,7 @@
             <label>
               GitHub App Client ID
               <input type="text" id="gh-client-id" autocomplete="off" placeholder="Iv23li...">
-              <small>Pre-filled with the built-in FreeDocStore GitHub App. Only change this if you're running a fork that uses a different App.</small>
+              <small>Pre-filled with the built-in ProDocStore GitHub App. Only change this if you're running a fork that uses a different App.</small>
             </label>
           </details>
 
@@ -211,7 +211,7 @@
     <section class="tab-panel" data-panel="addons" hidden>
       <fieldset>
         <legend>Available add-ons</legend>
-        <p>Things FreeDocStore can do for you. <strong>Don't edit anything by hand</strong> - ask the FreeDocStore agent in the side panel to enable or disable any of these on the current site.</p>
+        <p>Things ProDocStore can do for you. <strong>Don't edit anything by hand</strong> - ask the ProDocStore agent in the side panel to enable or disable any of these on the current site.</p>
         <ul id="addons-list" class="addons-list"><li>Loading&hellip;</li></ul>
         <small>Examples: <em>"enable search on this site"</em>, <em>"turn off the changelog"</em>, <em>"what add-ons does this site have on?"</em></small>
       </fieldset>

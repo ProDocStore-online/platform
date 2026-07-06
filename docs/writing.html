@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow">
-<title>Writing Guide - FreeDocStore</title>
+<title>Writing Guide - ProDocStore</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -14,8 +14,8 @@
 <header class="topbar">
   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
-    <span class="badge">FreeDocStore</span>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
+    <span class="badge">ProDocStore</span>
   </h1>
   <nav class="topbar-links">
     <a href="components.html">Components</a>
@@ -178,7 +178,7 @@
 
   <section id="rules">
     <h2>Publishing Rules</h2>
-    <p>Hard rules for everything we publish across all FreeDocStore knowledge bases.</p>
+    <p>Hard rules for everything we publish across all ProDocStore knowledge bases.</p>
 
     <div class="card highlight">
       <h4>Content format</h4>
@@ -201,7 +201,7 @@
       <h4>docs/ is self-contained - nothing else publishing-related in the repo</h4>
       <ul>
         <li><strong>Everything related to docs publishing must live inside <code>docs/</code>.</strong> No publishing scripts, build tools, generators, stylesheets, or assets outside of it. The repo root belongs to the project's code, not its documentation site.</li>
-        <li><strong>Do not copy build scripts into individual repos.</strong> Generators for changelogs, sitemaps, and page metadata are maintained centrally in FreeDocStore and run by the reusable workflow at deploy time. Enable them with flags like <code>generate-changelog: true</code> in <code>docs-deploy.yml</code>.</li>
+        <li><strong>Do not copy build scripts into individual repos.</strong> Generators for changelogs, sitemaps, and page metadata are maintained centrally in ProDocStore and run by the reusable workflow at deploy time. Enable them with flags like <code>generate-changelog: true</code> in <code>docs-deploy.yml</code>.</li>
         <li>The only exception is <code>.github/workflows/docs-deploy.yml</code>, which must live in its standard location to trigger CI.</li>
       </ul>
     </div>
@@ -227,7 +227,7 @@
 </main>
 
 <footer>
-  FreeDocStore &middot; by FreeDocStore
+  ProDocStore &middot; by ProDocStore
 </footer>
 
 <script>

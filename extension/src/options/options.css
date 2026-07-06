@@ -261,7 +261,7 @@ code {
 }
 
 /* Add-ons catalog list. Read-only; the UI deliberately omits copy-paste
-   snippets so users go through the FreeDocStore agent (per VISION.md). */
+   snippets so users go through the ProDocStore agent (per VISION.md). */
 .addons-list {
   list-style: none;
   padding: 0;

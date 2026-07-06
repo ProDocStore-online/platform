@@ -160,7 +160,7 @@ export function buildHtml(entries) {
 <body>
   <header class="topbar">
     <h1>
-      <a href="/index.html"><img src="/logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
+      <a href="/index.html"><img src="/logo.svg" alt="ProDocStore" class="topbar-logo"></a>
       <span class="badge">References</span>
     </h1>
   </header>

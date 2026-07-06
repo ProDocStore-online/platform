@@ -78,7 +78,7 @@ async function pollInjectQueue(): Promise<void> {
   // just try to flush the staged one (e.g. once the in-flight turn ends).
   if (pendingInject || state.sending) { maybeSubmitInject(); return; }
   try {
-    const resp = await fetch(`${base}/pending`, { headers: { "x-freedocstore-debug": "1" } });
+    const resp = await fetch(`${base}/pending`, { headers: { "x-prodocstore-debug": "1" } });
     if (!resp.ok) return;
     const data = (await resp.json()) as {
       prompts?: string[];

@@ -4,7 +4,7 @@
 // rendered HTML. Two spellings are accepted, same meaning:
 //
 //   <meta name="source-repo" content="owner/name">   (generic, any generator)
-//   <meta name="docs-repo"   content="owner/name">   (legacy freedocstore)
+//   <meta name="docs-repo"   content="owner/name">   (legacy prodocstore)
 //
 // Decentralised by design - any site that wants to work with the
 // extension opts in by emitting this tag at deploy time, regardless of

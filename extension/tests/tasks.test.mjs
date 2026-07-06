@@ -130,10 +130,10 @@ test("mirrorTaskToRepo ensures the branch and writes one file per task", async (
   const t = mkTask({ id: "z9", status: "in_review" });
   const res = await mirrorTaskToRepo(gh, "acme", "docs", t);
   assert.match(res.commitUrl, /commit\/deadbeef/);
-  assert.deepEqual(calls[0], ["ensureBranch", "acme", "docs", "freedocstore-chat"]);
+  assert.deepEqual(calls[0], ["ensureBranch", "acme", "docs", "prodocstore-chat"]);
   // File path + create (null sha) on the chat branch.
   const upd = calls.find((c) => c[0] === "updateFile");
-  assert.deepEqual(upd, ["updateFile", `${TASKS_DIR}/z9.json`, null, "freedocstore-chat"]);
+  assert.deepEqual(upd, ["updateFile", `${TASKS_DIR}/z9.json`, null, "prodocstore-chat"]);
 });
 
 test("TASKS_KEY is the storage key the board listens on", () => {

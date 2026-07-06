@@ -1,10 +1,10 @@
-# FreeDocStore Editor
+# ProDocStore Editor
 
-Self-serve editor and publisher for FreeDocStore knowledge bases.
+Self-serve editor and publisher for ProDocStore knowledge bases.
 
-Canonical product target: FreeDocStore-owned hosting.
+Canonical product target: ProDocStore-owned hosting.
 
-Canonical source: `apps/editor/` in <https://github.com/FreeDocStore/platform>.
+Canonical source: `apps/editor/` in <https://github.com/ProDocStore-online/platform>.
 
 The app is Zensical-only:
 
@@ -29,4 +29,4 @@ pnpm build
 
 ## Deploy
 
-Push to `main`; `.github/workflows/deploy-editor.yml` builds `apps/editor/web` and deploys from the FreeDocStore platform repo when R2 credentials are configured.
+Push to `main`; `.github/workflows/deploy-editor.yml` builds `apps/editor/web` and deploys from the ProDocStore platform repo when R2 credentials are configured.

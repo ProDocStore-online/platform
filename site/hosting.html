@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hosting FreeDocStore - Zensical KBs on Cloudflare</title>
-  <meta name="description" content="Deploy a FreeDocStore public knowledge base from a Zensical Markdown repo to Cloudflare Pages." />
+  <title>Hosting ProDocStore - Zensical KBs on Cloudflare</title>
+  <meta name="description" content="Deploy a ProDocStore public knowledge base from a Zensical Markdown repo to Cloudflare Pages." />
 
-  <meta property="og:title" content="Hosting FreeDocStore - Zensical KBs on Cloudflare" />
-  <meta property="og:description" content="Cloudflare Pages serves public FreeDocStore knowledge bases built from Zensical Markdown repos. Private staff/customer docs belong in ProDocStore." />
+  <meta property="og:title" content="Hosting ProDocStore - Zensical KBs on Cloudflare" />
+  <meta property="og:description" content="Cloudflare Pages serves public ProDocStore knowledge bases built from Zensical Markdown repos. Private staff/customer docs belong in ProDocStore." />
   <meta property="og:type" content="article" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
@@ -63,13 +63,13 @@
 
   <nav class="nav">
     <div class="wrap nav-inner">
-      <a href="index.html" class="nav-brand">FreeDocStore</a>
+      <a href="index.html" class="nav-brand">ProDocStore</a>
       <div class="nav-links">
         <a href="index.html#problem">Why</a>
         <a href="index.html#loop">The loop</a>
         <a href="index.html#how">How it works</a>
         <a href="hosting.html">Hosting</a>
-        <a href="https://github.com/FreeDocStore/platform">GitHub</a>
+        <a href="https://github.com/ProDocStore-online/platform">GitHub</a>
         <a href="index.html#install" class="nav-cta">Install</a>
       </div>
     </div>
@@ -78,11 +78,11 @@
   <main>
     <div class="wrap">
 
-      <h1>Hosting FreeDocStore - Zensical on Cloudflare</h1>
+      <h1>Hosting ProDocStore - Zensical on Cloudflare</h1>
       <p class="lede">
-        FreeDocStore publishes public knowledge bases from Zensical Markdown repos. The first hosting path is
+        ProDocStore publishes public knowledge bases from Zensical Markdown repos. The first hosting path is
         Cloudflare Pages, backed by source in GitHub. Private staff/customer docs are the
-        ProDocStore product line, not the FreeDocStore default.
+        ProDocStore product line, not the ProDocStore default.
       </p>
 
       <h2>The two layers</h2>
@@ -171,7 +171,7 @@ npx wrangler pages deploy site --project-name=your-project</code></pre>
 
       <h2>Step 3 - automate it (optional)</h2>
       <p>
-        The FreeDocStore repo ships a reusable GitHub Actions workflow at
+        The ProDocStore repo ships a reusable GitHub Actions workflow at
         <code>.github/workflows/deploy-pages.yml</code> that does the whole pattern in one step: deploys to
         Cloudflare Pages, ensures the Access app exists, syncs the policy, and rolls back if the post-deploy
         check finds the site is publicly reachable.
@@ -182,7 +182,7 @@ name: Docs Deploy
 on: { push: { branches: [main] } }
 jobs:
   deploy:
-    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: your-project
       email-domain: your-team.com
@@ -248,7 +248,7 @@ jobs:
       <h2>Summary</h2>
       <p>
         Cloudflare Pages serves your docs. Cloudflare One Access gates them. Together, free up to 50 users.
-        The FreeDocStore repo includes a workflow that wires the whole pattern up in CI - or you can do it by
+        The ProDocStore repo includes a workflow that wires the whole pattern up in CI - or you can do it by
         hand in 20 minutes from the dashboard.
       </p>
       <p>
@@ -262,7 +262,7 @@ jobs:
     <div class="wrap">
       <div class="footer-grid">
         <div class="footer-brand">
-          <p class="footer-wordmark">FreeDocStore</p>
+          <p class="footer-wordmark">ProDocStore</p>
           <p>Open-source infrastructure for public knowledge bases that humans and AI agents can read, update, and trust.</p>
         </div>
         <div class="footer-col">
@@ -279,12 +279,12 @@ jobs:
           <h5>Resources</h5>
           <ul>
             <li><a href="hosting.html">Hosting notes</a></li>
-            <li><a href="https://github.com/FreeDocStore/platform">GitHub</a></li>
-            <li><a href="https://github.com/FreeDocStore/platform/issues">Issues</a></li>
+            <li><a href="https://github.com/ProDocStore-online/platform">GitHub</a></li>
+            <li><a href="https://github.com/ProDocStore-online/platform/issues">Issues</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h5>FreeDocStore</h5>
+          <h5>ProDocStore</h5>
           <ul>
             <li><a href="https://openfrontier.one">Website</a></li>
             <li><a href="mailto:hello@openfrontier.one">Contact</a></li>
@@ -292,7 +292,7 @@ jobs:
         </div>
       </div>
       <div class="footer-bottom">
-        <span>&copy; 2026 FreeDocStore. MIT licensed.</span>
+        <span>&copy; 2026 ProDocStore. MIT licensed.</span>
         <span>Public docs. AI-first edits. GitHub-backed.</span>
       </div>
     </div>

@@ -15,9 +15,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/\.pas\//],
       },
       manifest: {
-        name: 'FreeDocStore Editor',
-        short_name: 'FDS Editor',
-        description: 'Self-serve Zensical knowledge-base publishing on FreeDocStore',
+        name: 'ProDocStore Editor',
+        short_name: 'PDS Editor',
+        description: 'Self-serve Zensical knowledge-base publishing on ProDocStore',
         start_url: '/',
         scope: '/',
         display: 'standalone',

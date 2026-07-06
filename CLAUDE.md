@@ -1,81 +1,62 @@
-# FreeDocStore
+# ProDocStore
 
-FreeDocStore is the free public knowledge-base publisher for the OFO store ecosystem.
+ProDocStore is the paid/private knowledge-base publisher for customer and staff documentation.
 
 ## Identity
 
 | Key | Value |
 | --- | --- |
-| Store code | FDOCS |
-| Domain | freedocstore.online |
-| GitHub org | FreeDocStore |
-| Local path | `~/dev/stores/fdocs/platform` |
-| Pro pair | ProDocStore |
+| Store code | PDOCS |
+| Domain | prodocstore.online |
+| GitHub org | ProDocStore-online |
+| Local path | `~/dev/stores/pdocs/platform` |
+| Free pair | FreeDocStore |
 
 ## Product Thesis
 
-Public knowledge should be free to publish, easy for AI agents to read, and safe to update through reviewable proposals.
+Private teams should be able to prompt, review, and publish secure knowledge bases without leaving GitHub as the source of truth.
 
-FreeDocStore is not a generic CMS. It is an AI-first docs publishing platform:
+ProDocStore is not a generic CMS. It is an AI-first Zensical publishing platform:
 
 - content changes start as prompts
-- AI drafts a proposal
-- users review diffs
+- AI drafts Markdown source or replacement proposals
+- users review files and diffs
 - GitHub remains the manual editing and review surface
-- published output is static, searchable, and agent-readable
+- each KB is its own repo and Cloudflare Pages project
+- private/customer controls belong here, not in FreeDocStore
 
 ## Editing Rule
 
-Do not add in-app rich text editors or Markdown body editors to FreeDocStore.
+Do not add in-app rich text editors or Markdown body editors.
 
 The product rule is:
 
 ```text
-prompt -> proposal -> diff -> GitHub commit/PR
+prompt -> proposal -> diff/source files -> GitHub commit/PR -> Zensical publish
 ```
 
 Manual edits happen in GitHub.
 
-## Current State
-
-This platform is the FreeDocStore-owned knowledge-base publishing monorepo. Keep useful engine internals, but product-facing copy should say FreeDocStore.
-
-Important inherited pieces:
-
-- `extension/` has the mature Chrome side-panel proposal workflow.
-- `site/editor.html` is the lightweight AI-first web workbench.
-- `templates/` has reusable docs generation and lint tooling.
-- `docs/` contains product and engine docs and should stay aligned with the Zensical-only publishing direction.
-
 ## Architecture Direction
 
-FreeDocStore should stay public-first:
-
 - GitHub is the source of truth.
-- Static builds are the publication artifact.
-- Cloudflare Pages/Workers/R2 can host public output.
-- D1 may hold registry/build metadata later.
-- MCP should expose read/search/propose tools before write tools.
-
-Private KB features belong in ProDocStore, not the first FreeDocStore MVP.
+- Zensical Markdown is the only supported source format for now.
+- The console is a React/PWA app under `apps/editor/`.
+- The API owns OAuth, user workspace state, and encrypted BYOK.
+- The MCP server uses the same account workspace as the console.
+- Cloudflare Pages/Workers/KV are independent from FreeDocStore.
+- Private repo deploy secrets need repo-level secrets unless the GitHub org has a paid plan.
 
 ## Commands
 
 ```bash
-open site/index.html
-open site/editor.html
+pnpm test
+pnpm --dir apps/editor build
+npm --prefix workers/api run typecheck
+npm --prefix workers/mcp run typecheck
 
 cd extension
-npm install
 npm run build
 npm run typecheck
 npm test
 ```
-
-## Near-Term Work
-
-1. Keep the product docs aligned with the FreeDocStore publishing model.
-2. Add a registry model for public knowledge bases.
-3. Add a build/publish path for Zensical Markdown docs.
-4. Decide Cloudflare hosting topology.
-5. Then create the ProDocStore plan for private customer/staff KBs.

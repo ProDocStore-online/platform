@@ -34,7 +34,7 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
-      - name: Deploy to FreeDocStore Cloudflare Pages
+      - name: Deploy to ProDocStore Cloudflare Pages
         if: env.HAS_CLOUDFLARE_SECRETS == 'true'
         uses: cloudflare/wrangler-action@v3
         env:
@@ -44,7 +44,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '3.91.0'
-          command: pages deploy apps/editor/web/dist --project-name=freedocstore-editor
+          command: pages deploy apps/editor/web/dist --project-name=prodocstore-editor
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
-        run: echo "::notice::Editor deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as FreeDocStore organization Actions secrets."
+        run: echo "::notice::Editor deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as ProDocStore organization Actions secrets."

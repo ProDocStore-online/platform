@@ -1,4 +1,4 @@
-const UA = "freedocstore-mcp";
+const UA = "prodocstore-mcp";
 
 export interface Registry {
   knowledge_bases?: KnowledgeBase[];

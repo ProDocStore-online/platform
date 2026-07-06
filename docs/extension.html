@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow">
-<title>Extension - FreeDocStore</title>
+<title>Extension - ProDocStore</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -14,8 +14,8 @@
 <header class="topbar">
   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
-    <span class="badge">FreeDocStore</span>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
+    <span class="badge">ProDocStore</span>
   </h1>
   <nav class="topbar-links">
     <a href="components.html">Components</a>
@@ -28,7 +28,7 @@
 
 <nav class="sidebar" id="sidebar">
   <div class="nav-group">
-    <div class="nav-group-title">FreeDocStore Extension</div>
+    <div class="nav-group-title">ProDocStore Extension</div>
     <a href="#overview" class="active">Overview</a>
     <a href="#architecture">Architecture</a>
     <a href="#install">Install</a>
@@ -42,7 +42,7 @@
 <main class="content">
 
   <section id="overview">
-    <h2>FreeDocStore Extension</h2>
+    <h2>ProDocStore Extension</h2>
     <p>Browser extension that lets you edit docs sites by chatting with an AI agent, directly from the rendered page. No "open the repo, find the file, clone, edit, PR" detour - prompt, review, commit.</p>
 
     <div class="card highlight">
@@ -56,7 +56,7 @@
       </ul>
     </div>
 
-    <p>Source lives at <code>extension/</code> in the <a href="https://github.com/FreeDocStore/platform">FreeDocStore repo</a>.</p>
+    <p>Source lives at <code>extension/</code> in the <a href="https://github.com/ProDocStore-online/platform">ProDocStore repo</a>.</p>
   </section>
 
   <section id="architecture">
@@ -82,7 +82,7 @@ Content script (content.ts)
     </div>
 
     <h3>URL to source file resolution</h3>
-    <p>Each docs site declares its backing GitHub repo via a single meta tag in the rendered HTML: <code>&lt;meta name=&quot;docs-repo&quot; content=&quot;owner/name&quot;&gt;</code>. The extension reads this tag and uses it to fetch source files, propose edits, and open PRs. Sites built with FreeDocStore templates emit the tag automatically at deploy time. Cloudflare Pages clean URLs (no <code>.html</code> suffix) and trailing slashes are resolved automatically.</p>
+    <p>Each docs site declares its backing GitHub repo via a single meta tag in the rendered HTML: <code>&lt;meta name=&quot;docs-repo&quot; content=&quot;owner/name&quot;&gt;</code>. The extension reads this tag and uses it to fetch source files, propose edits, and open PRs. Sites built with ProDocStore templates emit the tag automatically at deploy time. Cloudflare Pages clean URLs (no <code>.html</code> suffix) and trailing slashes are resolved automatically.</p>
 
     <h3>Structural (bulk) edits</h3>
     <p>A dedicated mode for changes spanning every page - nav updates, footer changes, meta tags. The agent produces a single structural diff; the extension applies it to every HTML file under <code>docs/</code> before opening one PR. This solves the "menu updates" pain point we kept hitting manually.</p>
@@ -96,18 +96,18 @@ Content script (content.ts)
     <ul>
       <li><strong>Chrome 120+</strong> (or any Chromium-based browser with Manifest V3 and <code>chrome.sidePanel</code>: Edge, Brave, Arc).</li>
       <li><strong>Node 20+</strong> and <strong>npm 10+</strong> to run the build.</li>
-      <li>A local clone of <code>FreeDocStore/platform</code>.</li>
+      <li>A local clone of <code>ProDocStore-online/platform</code>.</li>
     </ul>
 
     <h3>Packaged release</h3>
     <div class="card">
-      <p><a href="https://github.com/FreeDocStore/platform/releases/latest">Download the latest FreeDocStore extension release</a>, unzip <code>freedocstore-v*.zip</code>, then load the unzipped folder in Chrome.</p>
+      <p><a href="https://github.com/ProDocStore-online/platform/releases/latest">Download the latest ProDocStore extension release</a>, unzip <code>prodocstore-v*.zip</code>, then load the unzipped folder in Chrome.</p>
     </div>
 
     <h3>Build from source</h3>
     <div class="card">
-      <pre><code>git clone git@github.com:FreeDocStore/platform.git
-cd freedocstore/extension
+      <pre><code>git clone git@github.com:ProDocStore-online/platform.git
+cd prodocstore/extension
 npm install
 npm run build</code></pre>
     </div>
@@ -121,21 +121,21 @@ npm run build</code></pre>
       <li>Pick the <code>extension/dist/</code> directory (not <code>extension/</code>).</li>
       <li>Pin the extension to your toolbar so the icon is always visible.</li>
     </ol>
-    <p>The extension now appears as <strong>FreeDocStore</strong>.</p>
+    <p>The extension now appears as <strong>ProDocStore</strong>.</p>
 
     <h3>First run</h3>
     <ol>
-      <li>Open any FreeDocStore-enabled docs site.</li>
-      <li>Click the <strong>FreeDocStore</strong> toolbar icon. Chrome opens a side panel.</li>
+      <li>Open any ProDocStore-enabled docs site.</li>
+      <li>Click the <strong>ProDocStore</strong> toolbar icon. Chrome opens a side panel.</li>
       <li>The banner under the header shows the repo + source path resolved from the current URL, e.g. <code>your-org/your-repo - docs/index.html</code>.</li>
       <li>Pick a <strong>backend</strong> in the top-right dropdown.</li>
     </ol>
 
     <h3>Update after new builds</h3>
-    <p><code>dist/</code> ships as a regular folder - Chrome reads it live. After <code>npm run build</code> finishes, click the <strong>Reload</strong> arrow on the FreeDocStore card in <code>chrome://extensions</code>. No need to remove and re-add.</p>
+    <p><code>dist/</code> ships as a regular folder - Chrome reads it live. After <code>npm run build</code> finishes, click the <strong>Reload</strong> arrow on the ProDocStore card in <code>chrome://extensions</code>. No need to remove and re-add.</p>
 
     <h3>Uninstall</h3>
-    <p><code>chrome://extensions</code> &rarr; <strong>Remove</strong> on the FreeDocStore card. Settings stored in <code>chrome.storage.sync</code> are cleared automatically.</p>
+    <p><code>chrome://extensions</code> &rarr; <strong>Remove</strong> on the ProDocStore card. Settings stored in <code>chrome.storage.sync</code> are cleared automatically.</p>
   </section>
 
   <section id="backends">
@@ -223,7 +223,7 @@ npm run typecheck   # tsc --noEmit</code></pre>
 </main>
 
 <footer>
-  <p>FreeDocStore - Extension</p>
+  <p>ProDocStore - Extension</p>
   
 </footer>
 

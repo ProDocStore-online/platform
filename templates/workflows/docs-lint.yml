@@ -9,9 +9,9 @@ on:
 
 jobs:
   lint:
-    uses: FreeDocStore/platform/.github/workflows/docs-lint.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/docs-lint.yml@main
     secrets: inherit   # required - the reusable workflow uses a GitHub App
-                       # token to check out FreeDocStore.
+                       # token to check out ProDocStore.
     # Pre-sales is the only repo allowed to have financial/contractual content.
     # Uncomment for pre-sales only:
     # with:

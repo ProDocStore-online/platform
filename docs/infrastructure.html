@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Infrastructure - FreeDocStore</title>
+<title>Infrastructure - ProDocStore</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,8 +12,8 @@
 <header class="topbar">
   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">&#9776;</button>
   <h1>
-    <a href="index.html"><img src="logo.svg" alt="FreeDocStore" class="topbar-logo"></a>
-    <span class="badge">FreeDocStore</span>
+    <a href="index.html"><img src="logo.svg" alt="ProDocStore" class="topbar-logo"></a>
+    <span class="badge">ProDocStore</span>
   </h1>
   <nav class="topbar-links">
     <a href="components.html">Components</a>
@@ -40,7 +40,7 @@
   <!-- DEPLOYMENT & CI/CD -->
   <section id="deployment">
     <h2>Deployment &amp; CI/CD</h2>
-    <p>Every repo deploys to Cloudflare Pages via a <strong>centralised reusable workflow</strong> in FreeDocStore. Each repo's <code>docs-deploy.yml</code> is just a thin caller - all deployment logic, Access protection, and rollback lives in one place.</p>
+    <p>Every repo deploys to Cloudflare Pages via a <strong>centralised reusable workflow</strong> in ProDocStore. Each repo's <code>docs-deploy.yml</code> is just a thin caller - all deployment logic, Access protection, and rollback lives in one place.</p>
 
     <h3>Standard Workflows</h3>
     <div class="card highlight">
@@ -48,7 +48,7 @@
         <table>
           <thead><tr><th>Workflow</th><th>Location</th><th>What It Does</th></tr></thead>
           <tbody>
-            <tr><td><strong>deploy-pages.yml</strong></td><td>FreeDocStore (reusable)</td><td>Secure-by-default deploy: Access &rarr; pre-flight &rarr; deploy &rarr; verify</td></tr>
+            <tr><td><strong>deploy-pages.yml</strong></td><td>ProDocStore (reusable)</td><td>Secure-by-default deploy: Access &rarr; pre-flight &rarr; deploy &rarr; verify</td></tr>
             <tr><td><strong>docs-deploy.yml</strong></td><td>Each repo (caller)</td><td>Calls <code>deploy-pages.yml</code> with project name</td></tr>
             <tr><td><strong>claude.yml</strong></td><td>Each repo</td><td>Claude Code Action (<code>@claude</code> in issues/PRs)</td></tr>
             <tr><td><strong>claude-code-review.yml</strong></td><td>Each repo</td><td>Automated code review via Claude</td></tr>
@@ -61,13 +61,13 @@
     <div class="card highlight">
       <h4>1. Create docs/ and add content</h4>
       <pre><code>mkdir docs
-cp freedocstore/docs/index.html docs/index.html
+cp prodocstore/docs/index.html docs/index.html
 # Edit title, badge text, sidebar nav, and content</code></pre>
     </div>
     <div class="card highlight">
       <h4>2. Create docs-deploy.yml - just set your project name</h4>
       <pre><code>mkdir -p .github/workflows
-cp freedocstore/templates/workflows/docs-deploy.yml .github/workflows/</code></pre>
+cp prodocstore/templates/workflows/docs-deploy.yml .github/workflows/</code></pre>
       <p>Then edit <code>docs-deploy.yml</code> - only one value to change:</p>
       <pre><code>name: Docs Deploy
 
@@ -77,7 +77,7 @@ on:
 
 jobs:
   deploy:
-    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: your-project-name
     secrets: inherit</code></pre>
@@ -92,10 +92,10 @@ git push origin main
     </div>
 
     <h3>Feature Flags (<code>docs/features.json</code>)</h3>
-    <p>Deploy-time add-ons (changelog, sitemap, nav, search, toc, codeBlocks, etc.) are toggled via a single <code>docs/features.json</code> per KB. Drop the file in, list the add-ons you want on, and the reusable workflow reads it at deploy time. Missing keys fall through to the corresponding workflow input (legacy KBs that haven't migrated yet keep working). Schema: <code>templates/features.schema.json</code> in FreeDocStore; canonical catalog with descriptions: <code>templates/add-ons.json</code> (read by the chat extension's system prompt and Options UI).</p>
+    <p>Deploy-time add-ons (changelog, sitemap, nav, search, toc, codeBlocks, etc.) are toggled via a single <code>docs/features.json</code> per KB. Drop the file in, list the add-ons you want on, and the reusable workflow reads it at deploy time. Missing keys fall through to the corresponding workflow input (legacy KBs that haven't migrated yet keep working). Schema: <code>templates/features.schema.json</code> in ProDocStore; canonical catalog with descriptions: <code>templates/add-ons.json</code> (read by the chat extension's system prompt and Options UI).</p>
     <div class="card">
       <pre><code>{
-  "$schema": "https://raw.githubusercontent.com/FreeDocStore/platform/main/templates/features.schema.json",
+  "$schema": "https://raw.githubusercontent.com/ProDocStore-online/platform/main/templates/features.schema.json",
   "changelog": true,
   "sitemap": true,
   "pageMeta": true,
@@ -186,7 +186,7 @@ git push origin main
     <div class="grid-2">
       <div class="card">
         <h4>Via chat (fastest)</h4>
-        <p>Open the FreeDocStore side panel on your KB, switch to <strong>Edit</strong> mode, and prompt:</p>
+        <p>Open the ProDocStore side panel on your KB, switch to <strong>Edit</strong> mode, and prompt:</p>
         <pre><code>turn on sitemap and pageMeta</code></pre>
         <p>The agent reads <code>docs/features.json</code>, toggles the keys, and shows a preview. Click Apply to open a PR (or push directly, per your commit-mode setting).</p>
       </div>
@@ -201,7 +201,7 @@ git push origin main
     </div>
 
     <h4>How to request a NEW add-on</h4>
-    <p>An add-on not in the table above is a FreeDocStore change, not a per-KB change. New add-ons need coordinated edits across multiple files: an entry in <code>templates/add-ons.json</code> (catalog), a property in <code>templates/features.schema.json</code>, a generator script in <code>templates/search/scripts/</code>, a gated step in <code>.github/workflows/deploy-pages.yml</code>, and tests in <code>extension/tests/</code>. File an issue on <code>FreeDocStore/platform</code> describing the add-on + the shape of its output, and either open a PR or ask the FreeDocStore agent (Edit mode) to scaffold it. <code>inject-toc.mjs</code> and <code>inject-codeblocks.mjs</code> are the cleanest reference implementations to copy from.</p>
+    <p>An add-on not in the table above is a ProDocStore change, not a per-KB change. New add-ons need coordinated edits across multiple files: an entry in <code>templates/add-ons.json</code> (catalog), a property in <code>templates/features.schema.json</code>, a generator script in <code>templates/search/scripts/</code>, a gated step in <code>.github/workflows/deploy-pages.yml</code>, and tests in <code>extension/tests/</code>. File an issue on <code>ProDocStore-online/platform</code> describing the add-on + the shape of its output, and either open a PR or ask the ProDocStore agent (Edit mode) to scaffold it. <code>inject-toc.mjs</code> and <code>inject-codeblocks.mjs</code> are the cleanest reference implementations to copy from.</p>
 
     <h3>Reusable Workflow Options</h3>
     <p>The centralised workflow (<code>deploy-pages.yml</code>) accepts these inputs. Any value also expressible via <code>features.json</code> is documented as such; the file wins when both are set.</p>
@@ -212,7 +212,7 @@ git push origin main
           <tbody>
             <tr><td><code>project-name</code></td><td>Yes</td><td>&mdash;</td><td>Cloudflare Pages project name (becomes <code>&lt;name&gt;.pages.dev</code>)</td></tr>
             <tr><td><code>deploy-dir</code></td><td>No</td><td><code>docs</code></td><td>Directory to deploy</td></tr>
-            <tr><td><code>fetch-brand-assets</code></td><td>No</td><td><code>true</code></td><td>Pull styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers from FreeDocStore at deploy time</td></tr>
+            <tr><td><code>fetch-brand-assets</code></td><td>No</td><td><code>true</code></td><td>Pull styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers from ProDocStore at deploy time</td></tr>
             <tr><td><code>wrangler-version</code></td><td>No</td><td>latest</td><td>Pin a specific Wrangler version</td></tr>
             <tr><td><code>pre-deploy-steps</code></td><td>No</td><td><code>[]</code></td><td>JSON array of shell commands to run before deploy (builds, PDF generation, etc.)</td></tr>
             <tr><td><code>generate-changelog</code></td><td>No</td><td><code>false</code></td><td>Auto-generate <code>changelog.html</code> from git history at deploy time</td></tr>
@@ -241,12 +241,12 @@ git push origin main
     </div>
 
     <div class="callout">
-      <div class="callout-label">Generators live in FreeDocStore, not in your repo</div>
-      <p style="margin:0;">Changelog, sitemap, and page-meta scripts are maintained centrally in FreeDocStore and run automatically by the reusable workflow when you enable the flags above. <strong>Do not copy generator scripts into individual repos.</strong> If you need custom build steps that are truly project-specific, use <code>pre-deploy-steps</code> instead.</p>
+      <div class="callout-label">Generators live in ProDocStore, not in your repo</div>
+      <p style="margin:0;">Changelog, sitemap, and page-meta scripts are maintained centrally in ProDocStore and run automatically by the reusable workflow when you enable the flags above. <strong>Do not copy generator scripts into individual repos.</strong> If you need custom build steps that are truly project-specific, use <code>pre-deploy-steps</code> instead.</p>
     </div>
 
     <h3>Secure-by-Default Deployment</h3>
-    <p>All FreeDocStore sites use a <strong>secure-by-default</strong> deployment workflow. No site is ever publicly accessible - the workflow enforces this with a 4-step guarantee:</p>
+    <p>All ProDocStore sites use a <strong>secure-by-default</strong> deployment workflow. No site is ever publicly accessible - the workflow enforces this with a 4-step guarantee:</p>
 
     <div class="card highlight">
       <div class="table-wrap">
@@ -336,14 +336,14 @@ git push origin main
 
   <section id="reusable-workflows">
     <h2>How Reusable Workflows Work</h2>
-    <p>GitHub Actions supports <strong>reusable workflows</strong> - a workflow in one repo that other repos can call like a function. This is how every repo deploys with a single line of config while all logic lives in FreeDocStore.</p>
+    <p>GitHub Actions supports <strong>reusable workflows</strong> - a workflow in one repo that other repos can call like a function. This is how every repo deploys with a single line of config while all logic lives in ProDocStore.</p>
 
     <h3>The Concept</h3>
     <div class="grid-2">
       <div class="card highlight">
         <h4>Reusable Workflow (callee)</h4>
-        <p>Lives in FreeDocStore at <code>.github/workflows/deploy-pages.yml</code>. Declares <code>on: workflow_call</code> instead of <code>on: push</code>. Defines inputs (like function parameters) and runs all the actual deployment logic.</p>
-        <pre><code># deploy-pages.yml (in freedocstore)
+        <p>Lives in ProDocStore at <code>.github/workflows/deploy-pages.yml</code>. Declares <code>on: workflow_call</code> instead of <code>on: push</code>. Defines inputs (like function parameters) and runs all the actual deployment logic.</p>
+        <pre><code># deploy-pages.yml (in prodocstore)
 on:
   workflow_call:
     inputs:
@@ -365,7 +365,7 @@ on:
 
 jobs:
   deploy:
-    uses: FreeDocStore/platform/.github/workflows/deploy-pages.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/deploy-pages.yml@main
     with:
       project-name: your-pages-project
     secrets: inherit</code></pre>
@@ -379,10 +379,10 @@ jobs:
           <thead><tr><th>Concept</th><th>What It Means</th><th>Our Usage</th></tr></thead>
           <tbody>
             <tr><td><code>on: workflow_call</code></td><td>Makes a workflow callable by other workflows (like exporting a function)</td><td><code>deploy-pages.yml</code> declares this trigger</td></tr>
-            <tr><td><code>uses: owner/repo/.github/workflows/file.yml@ref</code></td><td>Calls a reusable workflow from another repo at a specific git ref</td><td>Each repo calls <code>FreeDocStore/platform/...@main</code></td></tr>
+            <tr><td><code>uses: owner/repo/.github/workflows/file.yml@ref</code></td><td>Calls a reusable workflow from another repo at a specific git ref</td><td>Each repo calls <code>ProDocStore-online/platform/...@main</code></td></tr>
             <tr><td><code>inputs:</code></td><td>Typed parameters the caller must/can provide (string, boolean, number)</td><td><code>project-name</code> (required), <code>deploy-dir</code>, <code>fetch-brand-assets</code>, etc.</td></tr>
             <tr><td><code>secrets: inherit</code></td><td>Passes all of the caller's secrets to the reusable workflow automatically</td><td>Passes <code>CLOUDFLARE_API_TOKEN</code> and <code>CLOUDFLARE_ACCOUNT_ID</code> from org secrets</td></tr>
-            <tr><td><code>@main</code> ref</td><td>Always uses the latest version on the <code>main</code> branch</td><td>Every repo gets updates automatically when changes land in FreeDocStore</td></tr>
+            <tr><td><code>@main</code> ref</td><td>Always uses the latest version on the <code>main</code> branch</td><td>Every repo gets updates automatically when changes land in ProDocStore</td></tr>
           </tbody>
         </table>
       </div>
@@ -390,14 +390,14 @@ jobs:
 
     <div class="callout">
       <div class="callout-label">Why @main instead of tags</div>
-      <p style="margin:0;">Repos referencing <code>@main</code> - this means any push to <code>deploy-pages.yml</code> in FreeDocStore immediately affects every repo's next deploy. This is convenient but risky: a broken commit breaks all deploys. <a href="https://github.com/FreeDocStore/platform/issues/6">Issue #6</a> tracks moving to tagged releases (<code>@v1</code>, <code>@v2</code>) so repos can pin to a known-good version and upgrade deliberately.</p>
+      <p style="margin:0;">Repos referencing <code>@main</code> - this means any push to <code>deploy-pages.yml</code> in ProDocStore immediately affects every repo's next deploy. This is convenient but risky: a broken commit breaks all deploys. <a href="https://github.com/ProDocStore-online/platform/issues/6">Issue #6</a> tracks moving to tagged releases (<code>@v1</code>, <code>@v2</code>) so repos can pin to a known-good version and upgrade deliberately.</p>
     </div>
 
     <h3>How <code>secrets: inherit</code> Works</h3>
     <div class="card">
-      <p>When a caller workflow specifies <code>secrets: inherit</code>, GitHub automatically passes <strong>all secrets available to the caller</strong> into the reusable workflow. For FreeDocStore repos:</p>
+      <p>When a caller workflow specifies <code>secrets: inherit</code>, GitHub automatically passes <strong>all secrets available to the caller</strong> into the reusable workflow. For ProDocStore repos:</p>
       <ol>
-        <li><strong>Org-level secrets</strong> (<code>CLOUDFLARE_API_TOKEN</code>, <code>CLOUDFLARE_ACCOUNT_ID</code>, <code>SLACK_TOKEN</code>, <code>SLACK_CHANNEL</code>) are set on the FreeDocStore GitHub organisation and available to all repos</li>
+        <li><strong>Org-level secrets</strong> (<code>CLOUDFLARE_API_TOKEN</code>, <code>CLOUDFLARE_ACCOUNT_ID</code>, <code>SLACK_TOKEN</code>, <code>SLACK_CHANNEL</code>) are set on the ProDocStore GitHub organisation and available to all repos</li>
         <li><strong>Repo-level secrets</strong> (<code>ANTHROPIC_API_KEY</code>) are set per-repo and only available in that repo</li>
         <li>The reusable workflow accesses them via <code>${{ secrets.CLOUDFLARE_API_TOKEN }}</code> - same syntax as normal workflows</li>
       </ol>
@@ -406,10 +406,10 @@ jobs:
 
     <h3>Cross-Repo Permissions</h3>
     <div class="card">
-      <p>For <code>uses: FreeDocStore/platform/...@main</code> to work:</p>
+      <p>For <code>uses: ProDocStore-online/platform/...@main</code> to work:</p>
       <ul>
-        <li>The <strong>FreeDocStore</strong> repo must be <strong>internal or public</strong> within the org (private repos cannot share reusable workflows unless you enable "Accessible from repositories in the organisation" under Actions settings)</li>
-        <li>The caller repo's Actions settings must allow workflows from FreeDocStore</li>
+        <li>The <strong>ProDocStore</strong> repo must be <strong>internal or public</strong> within the org (private repos cannot share reusable workflows unless you enable "Accessible from repositories in the organisation" under Actions settings)</li>
+        <li>The caller repo's Actions settings must allow workflows from ProDocStore</li>
         <li>The <code>permissions:</code> block in the reusable workflow defines what GitHub token scopes it needs (<code>contents: read</code>, <code>deployments: write</code>)</li>
       </ul>
     </div>
@@ -421,8 +421,8 @@ jobs:
         <table>
           <thead><tr><th>#</th><th>Step</th><th>What Happens</th><th>Condition</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td><strong>Checkout</strong></td><td>Checks out the caller repo's code (not FreeDocStore)</td><td>Always</td></tr>
-            <tr><td>2</td><td><strong>Fetch brand assets</strong></td><td>Checks out FreeDocStore via sparse checkout and copies styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers into deploy dir</td><td>Always (default)</td></tr>
+            <tr><td>1</td><td><strong>Checkout</strong></td><td>Checks out the caller repo's code (not ProDocStore)</td><td>Always</td></tr>
+            <tr><td>2</td><td><strong>Fetch brand assets</strong></td><td>Checks out ProDocStore via sparse checkout and copies styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers into deploy dir</td><td>Always (default)</td></tr>
             <tr><td>3</td><td><strong>Pre-deploy build</strong></td><td>Runs each command from <code>pre-deploy-steps</code> JSON array via <code>jq -r '.[]'</code> piped to <code>eval</code></td><td><code>pre-deploy-steps != '[]'</code></td></tr>
             <tr><td>4</td><td><strong>Ensure Access</strong></td><td>Calls Cloudflare API to find or create an Access self-hosted app + email domain policy</td><td>Always</td></tr>
             <tr><td>5</td><td><strong>Pre-flight check</strong></td><td>Curls <code>https://{project}.pages.dev</code> - blocks if HTTP 200 (publicly accessible)</td><td>Access is ready</td></tr>
@@ -445,7 +445,7 @@ echo '${{ inputs.pre-deploy-steps }}' | jq -r '.[]' | while IFS= read -r cmd; do
 done</code></pre>
       <div class="callout">
         <div class="callout-label">Security note: eval</div>
-        <p style="margin:0;">The use of <code>eval</code> here means the caller can execute arbitrary shell commands in the runner. This is acceptable because callers are trusted (they're our own repos), but it's flagged in <a href="https://github.com/FreeDocStore/platform/issues/1">Issue #1</a> for replacement with a safer mechanism like composite actions or a matrix strategy.</p>
+        <p style="margin:0;">The use of <code>eval</code> here means the caller can execute arbitrary shell commands in the runner. This is acceptable because callers are trusted (they're our own repos), but it's flagged in <a href="https://github.com/ProDocStore-online/platform/issues/1">Issue #1</a> for replacement with a safer mechanism like composite actions or a matrix strategy.</p>
       </div>
     </div>
 
@@ -453,7 +453,7 @@ done</code></pre>
     <div class="card">
       <p>Because all repos use <code>@main</code>, updating the deployment process is a single commit:</p>
       <ol>
-        <li>Edit <code>.github/workflows/deploy-pages.yml</code> in FreeDocStore</li>
+        <li>Edit <code>.github/workflows/deploy-pages.yml</code> in ProDocStore</li>
         <li>Push to <code>main</code></li>
         <li>Every repo's next deploy picks up the change automatically</li>
       </ol>
@@ -463,7 +463,7 @@ done</code></pre>
 
   <section id="quality">
     <h2>Quality &amp; Safety</h2>
-    <p>Two quality gates run on every change to FreeDocStore and every deploy from a project repo: the <strong>compliance lint</strong> and the <strong>unit test suite</strong>. Both are enforced automatically - there is no way to accidentally ship a broken generator or a non-compliant site.</p>
+    <p>Two quality gates run on every change to ProDocStore and every deploy from a project repo: the <strong>compliance lint</strong> and the <strong>unit test suite</strong>. Both are enforced automatically - there is no way to accidentally ship a broken generator or a non-compliant site.</p>
 
     <h3>Compliance Lint</h3>
     <p>The lint runs as the first step of every deploy (in <code>deploy-pages.yml</code>). If any check fails, the deploy is blocked before any Cloudflare side-effects happen. Logic lives in <code>templates/search/scripts/docs-lint.sh</code> so it is testable and also runnable locally.</p>
@@ -475,7 +475,7 @@ done</code></pre>
           <tbody>
             <tr><td>Workflow must be named <code>docs-deploy.yml</code>, not <code>deploy.yml</code></td><td>FAIL</td><td>Avoids clash with project app deploy workflows</td></tr>
             <tr><td>No brand assets tracked in <code>docs/</code> (styles.css, logo.svg, favicon.svg, nav.css, robots.txt, _headers)</td><td>FAIL</td><td>These are injected by the workflow at deploy time</td></tr>
-            <tr><td>No publishing scripts in top-level <code>scripts/</code> (generate-*, inject-*, add-heading-ids)</td><td>FAIL</td><td>Generators live centrally in FreeDocStore</td></tr>
+            <tr><td>No publishing scripts in top-level <code>scripts/</code> (generate-*, inject-*, add-heading-ids)</td><td>FAIL</td><td>Generators live centrally in ProDocStore</td></tr>
             <tr><td>Every HTML page has <code>&lt;meta name="robots" content="noindex,&hellip;"&gt;</code></td><td>FAIL</td><td>Sites are internal - never index</td></tr>
             <tr><td>Missing <code>&lt;meta name="googlebot"&gt;</code></td><td>WARN</td><td>Optional - <code>robots</code> already covers Google</td></tr>
             <tr><td>Pages with standard topbar link to <code>styles.css</code></td><td>FAIL</td><td>Shared stylesheet is the source of truth; print-style pages with <code>@page</code> or <code>*-pdf.html</code> are exempt</td></tr>
@@ -494,7 +494,7 @@ done</code></pre>
           <tbody>
             <tr><td><code>allow-financial: true</code></td><td>Dedicated commercial repos that are the canonical home for SOWs/proposals/rates</td></tr>
             <tr><td><code>allow-inline-styles: true</code></td><td>Legacy migration escape hatch; not needed today</td></tr>
-            <tr><td><code>skip-lint: true</code></td><td>Only FreeDocStore itself - it IS the source of brand assets</td></tr>
+            <tr><td><code>skip-lint: true</code></td><td>Only ProDocStore itself - it IS the source of brand assets</td></tr>
           </tbody>
         </table>
       </div>
@@ -503,14 +503,14 @@ done</code></pre>
     <h4>Running the lint locally</h4>
     <div class="card">
       <pre><code># From any repo root:
-bash ~/work/freedocstore/templates/search/scripts/docs-lint.sh
+bash ~/work/prodocstore/templates/search/scripts/docs-lint.sh
 
 # For commercial repos:
-ALLOW_FINANCIAL=true bash ~/work/freedocstore/templates/search/scripts/docs-lint.sh</code></pre>
+ALLOW_FINANCIAL=true bash ~/work/prodocstore/templates/search/scripts/docs-lint.sh</code></pre>
     </div>
 
     <h3>Unit Tests</h3>
-    <p>Every generator, the lint shell script, and the Access-policy sync script are covered by <code>node:test</code> (Node's built-in test runner - no external dependency). Tests run on every PR to FreeDocStore via <code>.github/workflows/test.yml</code>. Any change that breaks a generator, the lint, or the Cloudflare Access policy sync is caught before merge.</p>
+    <p>Every generator, the lint shell script, and the Access-policy sync script are covered by <code>node:test</code> (Node's built-in test runner - no external dependency). Tests run on every PR to ProDocStore via <code>.github/workflows/test.yml</code>. Any change that breaks a generator, the lint, or the Cloudflare Access policy sync is caught before merge.</p>
 
     <div class="card highlight">
       <div class="table-wrap">
@@ -543,7 +543,7 @@ ALLOW_FINANCIAL=true bash ~/work/freedocstore/templates/search/scripts/docs-lint
 
     <h4>Running tests locally</h4>
     <div class="card">
-      <pre><code># In FreeDocStore:
+      <pre><code># In ProDocStore:
 cd extension
 npm test
 
@@ -559,7 +559,7 @@ npm test -- tests/generate-changelog.test.mjs</code></pre>
 
   <section id="cloudflare-pages">
     <h2>Cloudflare Pages Deep Dive</h2>
-    <p>Every FreeDocStore documentation site is hosted on <strong>Cloudflare Pages</strong> - Cloudflare's static site hosting platform. No servers, no containers - just static files served from Cloudflare's global edge network.</p>
+    <p>Every ProDocStore documentation site is hosted on <strong>Cloudflare Pages</strong> - Cloudflare's static site hosting platform. No servers, no containers - just static files served from Cloudflare's global edge network.</p>
 
     <h3>What Is Cloudflare Pages</h3>
     <div class="card">
@@ -602,7 +602,7 @@ npm test -- tests/generate-changelog.test.mjs</code></pre>
 
     <h3>Pages Project Configuration</h3>
     <div class="card">
-      <p>FreeDocStore Pages projects have <strong>no build configuration</strong> in Cloudflare - all builds happen in GitHub Actions. The Cloudflare dashboard shows:</p>
+      <p>ProDocStore Pages projects have <strong>no build configuration</strong> in Cloudflare - all builds happen in GitHub Actions. The Cloudflare dashboard shows:</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
@@ -626,7 +626,7 @@ npm test -- tests/generate-changelog.test.mjs</code></pre>
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:</code></pre>
-      <p>See <a href="https://github.com/FreeDocStore/platform/issues/4">Issue #4</a> - not all sites have this yet.</p>
+      <p>See <a href="https://github.com/ProDocStore-online/platform/issues/4">Issue #4</a> - not all sites have this yet.</p>
     </div>
 
     <h3>Rollback Mechanism</h3>
@@ -660,14 +660,14 @@ curl -s -X DELETE \
       </div>
       <div class="callout">
         <div class="callout-label">Token scope</div>
-        <p style="margin:0;">The token is currently scoped to the <strong>entire account</strong>, not just docs repos. <a href="https://github.com/FreeDocStore/platform/issues/8">Issue #8</a> tracks scoping it down to only the repos that need it. <a href="https://github.com/FreeDocStore/platform/issues/10">Issue #10</a> tracks adding a TTL and rotation process.</p>
+        <p style="margin:0;">The token is currently scoped to the <strong>entire account</strong>, not just docs repos. <a href="https://github.com/ProDocStore-online/platform/issues/8">Issue #8</a> tracks scoping it down to only the repos that need it. <a href="https://github.com/ProDocStore-online/platform/issues/10">Issue #10</a> tracks adding a TTL and rotation process.</p>
       </div>
     </div>
   </section>
 
   <section id="zero-trust">
     <h2>Cloudflare Zero Trust &amp; Access</h2>
-    <p>A FreeDocStore-deployed <code>.pages.dev</code> site can be protected by <strong>Cloudflare Access</strong>, part of Cloudflare's Zero Trust platform. When configured this way, the site is not publicly accessible - users must authenticate with a <code>@your-company.com</code> email before seeing any content.</p>
+    <p>A ProDocStore-deployed <code>.pages.dev</code> site can be protected by <strong>Cloudflare Access</strong>, part of Cloudflare's Zero Trust platform. When configured this way, the site is not publicly accessible - users must authenticate with a <code>@your-company.com</code> email before seeing any content.</p>
 
     <h3>What Is Cloudflare Access</h3>
     <div class="card">
@@ -736,7 +736,7 @@ APP_ID=$(... | jq -r '.result[] | select(.self_hosted_domains[]? == $DOMAIN) | .
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Allow FreeDocStore emails",
+    "name": "Allow ProDocStore emails",
     "decision": "allow",
     "include": [{
       "email_domain": {
@@ -787,7 +787,7 @@ APP_ID=$(... | jq -r '.result[] | select(.self_hosted_domains[]? == $DOMAIN) | .
         <li>Workflow creates the Access app immediately after deploy</li>
         <li>Site is now protected</li>
       </ol>
-      <p>This is tracked as <a href="https://github.com/FreeDocStore/platform/issues/11">Issue #11</a> and accepted as a known risk because:</p>
+      <p>This is tracked as <a href="https://github.com/ProDocStore-online/platform/issues/11">Issue #11</a> and accepted as a known risk because:</p>
       <ul>
         <li>It only happens on the very first deploy of a brand-new site</li>
         <li>The URL isn't published or linked anywhere during this window</li>
@@ -824,7 +824,7 @@ APP_ID=$(... | jq -r '.result[] | select(.self_hosted_domains[]? == $DOMAIN) | .
 </main>
 
 <footer>
-  FreeDocStore &middot; by FreeDocStore
+  ProDocStore &middot; by ProDocStore
 </footer>
 
 <script>

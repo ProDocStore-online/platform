@@ -1,4 +1,4 @@
-// Tests for the .freedocstore/chat conversation mirror.
+// Tests for the .prodocstore/chat conversation mirror.
 //
 // serializeConversation is pure; persistConversation is exercised against
 // a hand-rolled GitHubClient stub so we can assert the branch/file/sha
@@ -13,7 +13,7 @@ const {
   persistConversation,
   CHAT_BRANCH,
   CHAT_FILE,
-} = await import(await bundle("src/lib/freedocstore-chat.ts"));
+} = await import(await bundle("src/lib/prodocstore-chat.ts"));
 
 const NOW = "2026-06-30T05:00:00.000Z";
 

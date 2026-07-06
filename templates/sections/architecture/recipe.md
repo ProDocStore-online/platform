@@ -40,7 +40,7 @@ The page that explains **how the system is built**: its components, how data mov
 - **Onboarding feedback** - a new hire's first three "wait, what does X do?" questions are usually questions the architecture page should have answered.
 - **Quarterly health check** - even with no specific trigger, re-read the page once a quarter to catch slow drift.
 
-## FreeDocStore-specific notes
+## ProDocStore-specific notes
 
 - Render as a single `architecture.html`. For very large systems, split into component-level pages (`architecture/auth.html`, `architecture/data-pipeline.html`) and keep the top-level page as an index. Single-file architecture stays readable up to about 8-10 components; beyond that, split.
 - Diagrams: prefer Mermaid (text-based, diff-friendly, renders in any browser with the Mermaid script) or hand-drawn SVG embedded inline. PNG screenshots of whiteboard photos are an acceptable interim, but they rot fast.

@@ -1,7 +1,7 @@
 {
-  "name": "freedocstore-platform",
+  "name": "prodocstore-platform",
   "private": true,
-  "description": "FreeDocStore platform monorepo",
+  "description": "ProDocStore platform monorepo",
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "editor:typecheck": "pnpm --dir apps/editor typecheck",
