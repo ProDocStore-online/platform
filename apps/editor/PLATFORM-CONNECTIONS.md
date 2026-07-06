@@ -32,12 +32,14 @@ wrangler secret put GITHUB_CLIENT_SECRET
 wrangler secret put GITHUB_TOKEN
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
-wrangler secret put OPENAI_API_KEY
+wrangler secret put FDS_KEY_ENCRYPTION_KEY
 ```
 
 `GITHUB_TOKEN` is the server-side platform token used for repository creation and content writes. The browser never receives it.
 
-`OPENAI_API_KEY` is injected server-side when the editor calls the FreeDocStore API proxy for OpenAI generation.
+`FDS_KEY_ENCRYPTION_KEY` is the API worker KEK for the per-user key vault. Use a 32-byte base64 or hex value.
+
+OpenAI is BYOK only. Users save their own OpenAI key once in the FreeDocStore console, and the API proxy resolves that encrypted key server-side for AI generation. Do not configure or use a platform-wide `OPENAI_API_KEY`.
 
 ## GitHub OAuth
 

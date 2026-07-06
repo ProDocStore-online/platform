@@ -20,7 +20,10 @@ GITHUB_ORG = "FreeDocStore"
 # wrangler secret put GITHUB_TOKEN
 # wrangler secret put GOOGLE_CLIENT_ID
 # wrangler secret put GOOGLE_CLIENT_SECRET
-# wrangler secret put OPENAI_API_KEY
+# wrangler secret put FDS_KEY_ENCRYPTION_KEY
+#
+# OpenAI is BYOK only. Users save their own key in the FreeDocStore console;
+# the API reads it from the encrypted per-user platform vault for AI generation.
 #
 # OAuth callbacks:
 # https://api.freedocstore.online/auth/github/callback

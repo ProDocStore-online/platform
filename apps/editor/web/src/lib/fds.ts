@@ -16,6 +16,13 @@ export interface Subscription {
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+export interface SecretStatus {
+  openai: {
+    configured: boolean
+    label: string
+  }
+}
+
 const API_BASE = (import.meta.env.VITE_FDS_API_BASE as string | undefined) || 'https://api.freedocstore.online'
 const THEME_KEY = 'fds:theme:v1'
 
@@ -60,6 +67,24 @@ export const fds = {
   proxy: {
     fetch(target: string, init: RequestInit = {}) {
       return apiFetch(`/api/proxy?target=${encodeURIComponent(target)}`, init)
+    },
+  },
+  secrets: {
+    get(): Promise<SecretStatus> {
+      return apiJson<SecretStatus>('/api/secrets')
+    },
+    async setOpenAiKey(value: string): Promise<SecretStatus> {
+      const data = await apiJson<{ openai: SecretStatus['openai'] }>('/api/secrets/openai', {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      })
+      return { openai: data.openai }
+    },
+    async clearOpenAiKey(): Promise<SecretStatus> {
+      const data = await apiJson<{ openai: SecretStatus['openai'] }>('/api/secrets/openai', {
+        method: 'DELETE',
+      })
+      return { openai: data.openai }
     },
   },
 }

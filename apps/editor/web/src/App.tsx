@@ -22,7 +22,7 @@ import {
   UserCircle,
   Wifi,
 } from 'lucide-react'
-import { fds as app, useAuth, useSubscription, useTheme, type Subscription, type User } from './lib/fds'
+import { fds as app, useAuth, useSubscription, useTheme, type SecretStatus, type Subscription, type User } from './lib/fds'
 
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
@@ -102,11 +102,18 @@ const emptySettings: Settings = {
   model: DEFAULT_MODEL,
 }
 
+const emptySecrets: SecretStatus = {
+  openai: {
+    configured: false,
+    label: '',
+  },
+}
+
 const initialConnections: PlatformConnections = {
   github: 'unchecked',
-  openai: 'unchecked',
+  openai: 'needs-setup',
   cloudflare: 'ready',
-  detail: 'Cloudflare deploy credentials are expected to live in platform/org secrets, not KB drafts.',
+  detail: 'Save your OpenAI BYOK key once in your FreeDocStore account. Cloudflare deploy credentials live in platform/org secrets.',
 }
 
 const starterPublish: PublishForm = {
@@ -245,6 +252,8 @@ function EditorApp() {
   const { preference, setPreference } = useTheme()
   const [route, setRoute] = useState<AppRoute>(() => routeFromLocation())
   const [settings, setSettings] = useState<Settings>(emptySettings)
+  const [secrets, setSecrets] = useState<SecretStatus>(emptySecrets)
+  const [openAiKeyInput, setOpenAiKeyInput] = useState('')
   const [kbs, setKbs] = useState<KnowledgeBaseDraft[]>(() => [createKnowledgeBase(starterPublish)])
   const [platformLoaded, setPlatformLoaded] = useState(false)
   const [connections, setConnections] = useState<PlatformConnections>(initialConnections)
@@ -358,6 +367,8 @@ function EditorApp() {
   useEffect(() => {
     if (!user) {
       setPlatformLoaded(false)
+      setSecrets(emptySecrets)
+      setOpenAiKeyInput('')
       return
     }
     let cancelled = false
@@ -386,6 +397,11 @@ function EditorApp() {
     return () => {
       cancelled = true
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    refreshSecrets().catch((error) => setStatus(`Could not load BYOK key status: ${messageOf(error)}`))
   }, [user])
 
   useEffect(() => {
@@ -510,6 +526,7 @@ function EditorApp() {
       validatePublishForm(form)
       validatePlatformAccess(user)
       validateAi(settings)
+      validateByok(secrets)
       setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
       setKbSteps(kbId, updateStep('ai', 'busy', 'Asking AI for source files'))
       const nextFiles = await generateKbFiles(settings, form)
@@ -540,6 +557,7 @@ function EditorApp() {
         validatePublishForm(form)
         validatePlatformAccess(user)
         validateAi(settings)
+        validateByok(secrets)
         setKbSteps(kbId, resetSteps('plan', 'busy'))
         setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
         setKbSteps(kbId, updateStep('ai', 'busy', 'Asking AI for source files'))
@@ -601,6 +619,7 @@ function EditorApp() {
     try {
       validatePlatformAccess(user)
       validateAi(settings)
+      validateByok(secrets)
       const current = source || (await readGitHubFile(editForm.repo, editForm.path, editForm.branch))
       setSource(current)
       const next = await generateEditProposal(settings, editForm, current)
@@ -628,35 +647,93 @@ function EditorApp() {
     profile: 'Manage your FreeDocStore account, workspace, and publishing connections.',
   }[route]
 
+  async function refreshSecrets() {
+    const next = await app.secrets.get()
+    setSecrets(next)
+    setConnections((current) => ({
+      ...current,
+      openai: next.openai.configured ? current.openai : 'needs-setup',
+      detail: next.openai.configured
+        ? current.detail
+        : 'OpenAI generation uses your BYOK key. Save it once in your FreeDocStore account before prompting KBs.',
+    }))
+  }
+
+  async function saveOpenAiKey() {
+    const value = openAiKeyInput.trim()
+    if (!value) {
+      setStatus('Paste your OpenAI API key before saving.')
+      return
+    }
+    setBusy(true)
+    setStatus('Saving OpenAI BYOK key')
+    try {
+      const next = await app.secrets.setOpenAiKey(value)
+      setSecrets(next)
+      setOpenAiKeyInput('')
+      setConnections((current) => ({ ...current, openai: 'unchecked', detail: 'OpenAI BYOK key saved. Check platform connections to verify it.' }))
+      setStatus('OpenAI BYOK key saved')
+    } catch (error) {
+      setStatus(messageOf(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clearOpenAiKey() {
+    setBusy(true)
+    setStatus('Removing OpenAI BYOK key')
+    try {
+      const next = await app.secrets.clearOpenAiKey()
+      setSecrets(next)
+      setConnections((current) => ({ ...current, openai: 'needs-setup', detail: 'OpenAI BYOK key removed. Save a key before prompting KBs.' }))
+      setStatus('OpenAI BYOK key removed')
+    } catch (error) {
+      setStatus(messageOf(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function checkConnections() {
-    setConnections({ ...initialConnections, github: 'checking', openai: 'checking' })
+    setConnections({ ...initialConnections, github: 'checking', openai: secrets.openai.configured ? 'checking' : 'needs-setup' })
     setStatus('Checking platform connections')
     try {
       validatePlatformAccess(user)
       const github = await app.proxy.fetch('api.github.com/user', { headers: githubHeaders() })
-      const openai = await app.proxy.fetch(proxyTarget(settings.openaiEndpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: settings.model,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: 'Return JSON only.' },
-            { role: 'user', content: '{"ok":true}' },
-          ],
-        }),
-      })
+      let currentSecrets = secrets
+      if (!currentSecrets.openai.configured) {
+        currentSecrets = await app.secrets.get()
+        setSecrets(currentSecrets)
+      }
+      const openai = currentSecrets.openai.configured
+        ? await app.proxy.fetch(proxyTarget(settings.openaiEndpoint), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: settings.model,
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: 'Return JSON only.' },
+                { role: 'user', content: '{"ok":true}' },
+              ],
+            }),
+          })
+        : null
+      const openaiError = openai && !openai.ok ? await openai.text() : ''
       setConnections({
         github: github.ok ? 'ready' : 'needs-setup',
-        openai: openai.ok ? 'ready' : 'needs-setup',
+        openai: openai?.ok ? 'ready' : 'needs-setup',
         cloudflare: 'ready',
-        detail: openai.ok && github.ok
-          ? 'Platform connections are ready for repo creation and AI generation.'
-          : `GitHub ${github.status}; OpenAI ${openai.status}. Configure platform app secrets or user vault keys.`,
+        detail: openai?.ok && github.ok
+          ? 'Connections are ready. GitHub uses platform OAuth/proxy and OpenAI uses your BYOK key.'
+          : currentSecrets.openai.configured
+            ? `GitHub ${github.status}; OpenAI ${openai?.status ?? 'not checked'}. ${openaiError || 'Check your OpenAI account/key.'}`
+            : `GitHub ${github.status}; OpenAI needs your BYOK key in Profile > Platform connections.`,
       })
-      setStatus(github.ok && openai.ok ? 'Platform connections ready' : 'Some platform connections need setup')
+      setStatus(github.ok && openai?.ok ? 'Platform connections ready' : 'Some platform connections need setup')
     } catch (error) {
-      setConnections({ github: 'error', openai: 'error', cloudflare: 'ready', detail: messageOf(error) })
+      setConnections({ github: 'error', openai: secrets.openai.configured ? 'error' : 'needs-setup', cloudflare: 'ready', detail: messageOf(error) })
       setStatus(messageOf(error))
     }
   }
@@ -689,7 +766,18 @@ function EditorApp() {
     <div className="workspace-grid">
       <section className="panel control-panel">
         <SelectedKbHeader kb={activeKb} onBack={() => navigate('dashboard')} />
-        <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={checkConnections} compact />
+        <SettingsPanel
+          settings={settings}
+          setSettings={setSettings}
+          secrets={secrets}
+          openAiKeyInput={openAiKeyInput}
+          setOpenAiKeyInput={setOpenAiKeyInput}
+          onSaveOpenAiKey={saveOpenAiKey}
+          onClearOpenAiKey={clearOpenAiKey}
+          connections={connections}
+          onCheck={checkConnections}
+          compact
+        />
         <PublishPanel
           form={publishForm}
           setForm={updateActiveForm}
@@ -708,7 +796,18 @@ function EditorApp() {
   ) : route === 'edit' ? (
     <div className="workspace-grid">
       <section className="panel control-panel">
-        <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={checkConnections} compact />
+        <SettingsPanel
+          settings={settings}
+          setSettings={setSettings}
+          secrets={secrets}
+          openAiKeyInput={openAiKeyInput}
+          setOpenAiKeyInput={setOpenAiKeyInput}
+          onSaveOpenAiKey={saveOpenAiKey}
+          onClearOpenAiKey={clearOpenAiKey}
+          connections={connections}
+          onCheck={checkConnections}
+          compact
+        />
         <EditPanel
           form={editForm}
           setForm={setEditForm}
@@ -727,6 +826,11 @@ function EditorApp() {
     <ProfilePage
       settings={settings}
       setSettings={setSettings}
+      secrets={secrets}
+      openAiKeyInput={openAiKeyInput}
+      setOpenAiKeyInput={setOpenAiKeyInput}
+      onSaveOpenAiKey={saveOpenAiKey}
+      onClearOpenAiKey={clearOpenAiKey}
       connections={connections}
       onCheck={checkConnections}
       kbs={kbs}
@@ -1065,18 +1169,29 @@ function SelectedKbHeader({ kb, onBack }: { kb: KnowledgeBaseDraft; onBack: () =
 function SettingsPanel({
   settings,
   setSettings,
+  secrets,
+  openAiKeyInput,
+  setOpenAiKeyInput,
+  onSaveOpenAiKey,
+  onClearOpenAiKey,
   connections,
   onCheck,
   compact = false,
 }: {
   settings: Settings
   setSettings: (s: Settings) => void
+  secrets: SecretStatus
+  openAiKeyInput: string
+  setOpenAiKeyInput: (value: string) => void
+  onSaveOpenAiKey: () => void
+  onClearOpenAiKey: () => void
   connections: PlatformConnections
   onCheck: () => void
   compact?: boolean
 }) {
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings({ ...settings, [key]: value })
   const connectedCount = [connections.github, connections.openai, connections.cloudflare].filter((state) => state === 'ready').length
+  const openAiKeyStatus = secrets.openai.configured ? `Saved as ${secrets.openai.label}` : 'No OpenAI key saved'
   return (
     <details className="section-block settings-details" open={!compact || connectedCount < 3}>
       <summary>
@@ -1084,21 +1199,38 @@ function SettingsPanel({
           <KeyRound size={18} />
           <span>
             <strong>Platform connections</strong>
-            <small>{connectedCount}/3 ready. Secrets are stored on the platform, not in KB drafts.</small>
+            <small>{connectedCount}/3 ready. OpenAI is BYOK and stored once on your account.</small>
           </span>
         </span>
       </summary>
       <div className="connection-grid">
         <ConnectionBadge label="GitHub" state={connections.github} detail="Repository create/read/write through the platform proxy" />
-        <ConnectionBadge label="OpenAI" state={connections.openai} detail="AI generation through platform proxy or key vault" />
+        <ConnectionBadge label="OpenAI" state={connections.openai} detail="AI generation through your saved BYOK key" />
         <ConnectionBadge label="Cloudflare" state={connections.cloudflare} detail="Deploy credentials held by platform/org secrets" />
       </div>
       <p className="connection-detail">{connections.detail}</p>
+      <div className="byok-strip">
+        <div>
+          <span>OpenAI BYOK key</span>
+          <strong>{openAiKeyStatus}</strong>
+          <p>Used for all KB generation and AI edits. Not saved in KB drafts or generated repos.</p>
+        </div>
+        {secrets.openai.configured && (
+          <button className="secondary-action danger-action" type="button" onClick={onClearOpenAiKey}>
+            Remove key
+          </button>
+        )}
+      </div>
       <div className="field-grid two">
+        <Field label="OpenAI API key" value={openAiKeyInput} onChange={setOpenAiKeyInput} placeholder="sk-..." secret />
         <Field label="OpenAI endpoint" value={settings.openaiEndpoint} onChange={(v) => update('openaiEndpoint', v)} />
         <Field label="Model" value={settings.model} onChange={(v) => update('model', v)} />
       </div>
       <div className="action-row compact-actions">
+        <button className="primary-action" type="button" onClick={onSaveOpenAiKey} disabled={!openAiKeyInput.trim()}>
+          <KeyRound size={17} />
+          Save BYOK key
+        </button>
         <button className="secondary-action" type="button" onClick={onCheck}>
           <ShieldCheck size={17} />
           Check platform connections
@@ -1128,6 +1260,11 @@ function ConnectionBadge({ label, state, detail }: { label: string; state: Conne
 function ProfilePage({
   settings,
   setSettings,
+  secrets,
+  openAiKeyInput,
+  setOpenAiKeyInput,
+  onSaveOpenAiKey,
+  onClearOpenAiKey,
   connections,
   onCheck,
   kbs,
@@ -1149,6 +1286,11 @@ function ProfilePage({
 }: {
   settings: Settings
   setSettings: (settings: Settings) => void
+  secrets: SecretStatus
+  openAiKeyInput: string
+  setOpenAiKeyInput: (value: string) => void
+  onSaveOpenAiKey: () => void
+  onClearOpenAiKey: () => void
   connections: PlatformConnections
   onCheck: () => void
   kbs: KnowledgeBaseDraft[]
@@ -1264,7 +1406,17 @@ function ProfilePage({
           onInstall={onInstall}
           onUpdate={onUpdate}
         />
-        <SettingsPanel settings={settings} setSettings={setSettings} connections={connections} onCheck={onCheck} />
+        <SettingsPanel
+          settings={settings}
+          setSettings={setSettings}
+          secrets={secrets}
+          openAiKeyInput={openAiKeyInput}
+          setOpenAiKeyInput={setOpenAiKeyInput}
+          onSaveOpenAiKey={onSaveOpenAiKey}
+          onClearOpenAiKey={onClearOpenAiKey}
+          connections={connections}
+          onCheck={onCheck}
+        />
       </section>
     </div>
   )
@@ -1876,6 +2028,10 @@ function validatePublishForm(form: PublishForm) {
 function validateAi(settings: Settings) {
   if (!settings.openaiEndpoint.trim()) throw new Error('OpenAI endpoint is required.')
   if (!settings.model.trim()) throw new Error('Model is required.')
+}
+
+function validateByok(secrets: SecretStatus) {
+  if (!secrets.openai.configured) throw new Error('Save your OpenAI BYOK key in Profile > Platform connections before using AI generation.')
 }
 
 function validatePlatformAccess(user: unknown) {

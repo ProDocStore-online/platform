@@ -571,6 +571,42 @@ h1 {
   margin-bottom: 12px;
 }
 
+.byok-strip {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-muted);
+  padding: 11px 12px;
+}
+
+.byok-strip > div {
+  min-width: 0;
+}
+
+.byok-strip span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.byok-strip strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.byok-strip p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
 .metric-grid strong {
   font-size: 19px;
 }
@@ -784,6 +820,16 @@ h1 {
 .account-pill:hover {
   border-color: var(--line-strong);
   background: var(--panel-muted);
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.primary-action:disabled:hover {
+  background: var(--accent);
 }
 
 .danger-action {
