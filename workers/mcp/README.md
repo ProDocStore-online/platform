@@ -21,6 +21,12 @@ Current deployed endpoint:
 https://mcp.prodocstore.online/mcp
 ```
 
+Health:
+
+```bash
+https://mcp.prodocstore.online/health
+```
+
 ## Connect
 
 ```bash
@@ -64,13 +70,20 @@ The Worker requires:
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 
+Production OAuth secrets are stored in SOPS as:
+
+- `pdocs.MCP_GITHUB_CLIENT_ID`
+- `pdocs.MCP_GITHUB_CLIENT_SECRET`
+
 The GitHub OAuth callback URL is:
 
 ```text
 https://mcp.prodocstore.online/callback
 ```
 
-Write tools come next after the signed-in account can be mapped to repo ownership:
+Current write tools create and update console workspace drafts only. `create_workspace_draft` and `create_sample_knowledge_base` create Zensical Markdown files in the signed-in user's ProDocStore workspace, so they are visible in the console. They do not yet create GitHub repositories, attach domains, or trigger Cloudflare Pages deploys directly from MCP.
+
+Future direct publish tools:
 
 - `create_knowledge_base`
 - `update_files`

@@ -58,7 +58,7 @@ Production console:
 - URL: <https://console.prodocstore.online/>
 - Cloudflare Pages project: `prodocstore-editor`
 
-The console supports Google/GitHub sign-in, multiple KB drafts per account, profile-level OpenAI BYOK, one GitHub repo per KB, Zensical-only Markdown source, Cloudflare Pages publishing, and optional custom domains per KB.
+The console supports Google/GitHub sign-in, multiple KB drafts per account, profile-level OpenAI BYOK, company-scoped KB settings, one GitHub repo per KB, Zensical-only Markdown source, Cloudflare Pages publishing, Cloudflare Access policies for private KBs, and optional custom domains per KB.
 
 ## API
 
@@ -85,11 +85,14 @@ OpenAI is BYOK only. Users save their own OpenAI key once on the console Profile
 Production MCP:
 
 - Endpoint: <https://mcp.prodocstore.online/mcp>
+- Health check: <https://mcp.prodocstore.online/health>
 - Discovery: <https://prodocstore.online/.well-known/mcp.json>
 - Local connector: `.mcp.json`
 - Worker: `prodocstore-mcp`
 
-The MCP server exposes account visibility, workspace drafts, Zensical validation, registry reads, deploy checks, and prompt-to-publish planning. Authenticated write tools use the same ProDocStore user workspace and KV binding as the console.
+The MCP server exposes account visibility, workspace drafts, Zensical validation, registry reads, deploy checks, and prompt-to-publish planning. Authenticated workspace write tools use the same ProDocStore user workspace and KV binding as the console.
+
+Production MCP OAuth is configured through the ProDocStore-specific GitHub OAuth app. The deploy workflow checks that OAuth and storage are configured before it treats `prodocstore-mcp` as healthy.
 
 ## Cloudflare And Secrets
 
@@ -103,6 +106,8 @@ Required ProDocStore org Actions secrets:
 GitHub free organizations expose org Actions secrets only to public repos. If ProDocStore creates private customer repos without a paid GitHub org plan, required deploy secrets must be set at the repo level or publishing must use a separate deploy path.
 
 The Cloudflare token needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone.
+
+Private/customer KB publishing also needs Cloudflare Zero Trust Access application and policy edit permissions. ProDocStore defaults private KBs to closed access and then opens them through explicit policy rules such as allowed email addresses or email domains.
 
 ## Local Commands
 

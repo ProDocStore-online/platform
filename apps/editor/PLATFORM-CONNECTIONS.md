@@ -63,6 +63,28 @@ MCP GitHub callback:
 https://mcp.prodocstore.online/callback
 ```
 
+## MCP Worker Secrets
+
+Configure these on `prodocstore-mcp` through SOPS-sourced values:
+
+```bash
+wrangler secret put GITHUB_CLIENT_ID
+wrangler secret put GITHUB_CLIENT_SECRET
+```
+
+The SOPS inventory names are:
+
+- `pdocs.MCP_GITHUB_CLIENT_ID`
+- `pdocs.MCP_GITHUB_CLIENT_SECRET`
+
+The production MCP health endpoint must report both OAuth and storage as configured:
+
+```text
+https://mcp.prodocstore.online/health
+```
+
+The `Deploy MCP` workflow fails after deployment if either OAuth or KV storage is missing.
+
 ## Cloudflare Deploy
 
 Generated KB repositories use `.github/workflows/deploy.yml` and expect Cloudflare deploy credentials from ProDocStore Actions secrets:
@@ -73,3 +95,5 @@ Generated KB repositories use `.github/workflows/deploy.yml` and expect Cloudfla
 GitHub free org-level Actions secrets apply to public repositories only. For private KB repositories, the ProDocStore API installs these as repo-level Actions secrets before the first workflow commit. The browser never receives Cloudflare credentials.
 
 Private KB workflows also create and verify a Cloudflare Access application for the Pages URL before treating the deploy as successful. The Cloudflare token must include Pages edit, DNS edit, Workers/KV edit for the platform, and Zero Trust Access application/policy edit permissions.
+
+Private custom-domain Access enforcement is intentionally treated as a separate verification step. The safe default is to close the Pages URL first, then attach and verify custom-domain policy coverage before announcing the custom domain as ready.
