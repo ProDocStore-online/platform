@@ -39,6 +39,20 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Verify MCP OAuth configuration
+        if: env.HAS_CLOUDFLARE_SECRETS == 'true'
+        run: |
+          set -euo pipefail
+          HEALTH="$(curl -fsS https://mcp.prodocstore.online/health)"
+          echo "$HEALTH" | jq .
+          if [ "$(echo "$HEALTH" | jq -r '.oauthConfigured')" != "true" ]; then
+            echo "::error::ProDocStore MCP deployed, but GitHub OAuth is not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET as Wrangler secrets on prodocstore-mcp."
+            exit 1
+          fi
+          if [ "$(echo "$HEALTH" | jq -r '.storageConfigured')" != "true" ]; then
+            echo "::error::ProDocStore MCP deployed, but required storage bindings are not configured."
+            exit 1
+          fi
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
         run: echo "::notice::Cloudflare deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as ProDocStore organization Actions secrets."
