@@ -2,6 +2,8 @@
 
 FreeDocStore is the public knowledge-base publishing layer in the Open Frontier store ecosystem.
 
+Canonical GitHub organization: <https://github.com/FreeDocStore>. The platform repo, published KB repos, reusable workflows, and shared Actions secrets belong to that org, the same way the other stores keep their infrastructure under their own store orgs.
+
 It turns GitHub-backed Zensical documentation repositories into free public knowledge bases with AI-first editing, reviewable proposals, Cloudflare publishing, search, and agent-readable metadata.
 
 ## Product Rule
@@ -145,12 +147,19 @@ The production editor talks to the independent FreeDocStore API Worker:
 
 The API owns GitHub sign-in, per-user workspace KV, and server-side proxy injection for platform secrets. The browser never stores GitHub, OpenAI, or Cloudflare deploy tokens per KB.
 
+Cloudflare deploy credentials must be configured as FreeDocStore organization-level GitHub Actions secrets so `FreeDocStore/platform` and every `FreeDocStore/<kb-slug>` repo can deploy through the shared workflows without per-repo key entry.
+
 Required worker secrets:
 
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_TOKEN`
 - `OPENAI_API_KEY`
+
+Required FreeDocStore org Actions secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
 ## AI Editor Flow
 

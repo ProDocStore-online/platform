@@ -39,4 +39,4 @@ jobs:
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
         run: |
-          echo "::notice::Cloudflare deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository or organization secrets to enable automatic production deploys."
+          echo "::notice::Cloudflare deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as FreeDocStore organization Actions secrets to enable automatic production deploys."

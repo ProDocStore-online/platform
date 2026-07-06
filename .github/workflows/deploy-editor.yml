@@ -47,4 +47,4 @@ jobs:
           command: pages deploy apps/editor/web/dist --project-name=freedocstore-editor
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
-        run: echo "::notice::Editor deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+        run: echo "::notice::Editor deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as FreeDocStore organization Actions secrets."

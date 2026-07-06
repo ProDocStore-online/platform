@@ -2,6 +2,14 @@
 
 The editor uses the independent FreeDocStore API worker, not PAS.
 
+Canonical GitHub organization:
+
+```text
+https://github.com/FreeDocStore
+```
+
+The platform repo, generated KB repos, reusable deploy workflows, and shared GitHub Actions secrets are owned by the FreeDocStore org.
+
 Default API base:
 
 ```text
@@ -45,9 +53,9 @@ https://api.freedocstore.online/auth/github/callback
 
 ## Cloudflare Deploy
 
-Generated KB repositories use `.github/workflows/deploy.yml` and expect Cloudflare deploy credentials from GitHub Actions secrets:
+Generated KB repositories use `.github/workflows/deploy.yml` and expect Cloudflare deploy credentials from FreeDocStore organization-level GitHub Actions secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-The editor does not ask users for these keys per KB.
+The editor does not ask users for these keys per KB. Do not set empty repo-level secrets on `FreeDocStore/platform`, because they can shadow real org-level secrets.

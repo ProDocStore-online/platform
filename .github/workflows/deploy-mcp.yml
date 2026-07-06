@@ -41,4 +41,4 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
-        run: echo "::notice::Cloudflare deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+        run: echo "::notice::Cloudflare deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as FreeDocStore organization Actions secrets."
