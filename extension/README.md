@@ -77,7 +77,19 @@ full test suite, packages the zip, and creates a GitHub Release.
 Failure modes (tag/manifest mismatch, test failure, missing zip) abort
 BEFORE publishing - nothing leaves the repo unless every check passes.
 
-Chrome Web Store upload is currently manual: download the zip from
-the published Release and upload to
-<https://chrome.google.com/webstore/devconsole>. Once we have CWS API
-credentials wired into Actions secrets we can automate that step too.
+Chrome Web Store upload is automatic when these Actions secrets are
+available to the repository:
+- `CWS_CLIENT_ID`
+- `CWS_CLIENT_SECRET`
+- `CWS_REFRESH_TOKEN`
+- `CWS_PUBLISHER_ID`
+- `CWS_EXTENSION_ID`
+
+The workflow uploads the packaged zip through the Chrome Web Store API
+and submits it for review. First-time listing setup still happens in
+the developer dashboard:
+<https://chrome.google.com/webstore/devconsole>.
+
+To publish an existing release tag after adding CWS secrets, run the
+manual `Publish Chrome Web Store` workflow with a tag such as
+`v0.47.2`.
