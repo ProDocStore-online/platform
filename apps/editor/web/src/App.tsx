@@ -1981,6 +1981,61 @@ jobs:
           node-version: 22
       - run: python -m pip install zensical
       - run: python -m zensical build --strict
+      - name: Inject FreeDocStore source metadata
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          if (!repo) throw new Error('GITHUB_REPOSITORY is not set');
+
+          const siteDir = 'site';
+          const docsDir = 'docs';
+          const sourceExts = ['.md', '.mdx', '.markdown', '.html', '.htm'];
+
+          function walk(dir) {
+            if (!fs.existsSync(dir)) return [];
+            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+              const full = path.join(dir, entry.name);
+              return entry.isDirectory() ? walk(full) : [full];
+            });
+          }
+
+          function escapeAttr(value) {
+            return String(value)
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          }
+
+          function sourceForHtml(file) {
+            let rel = path.relative(siteDir, file).split(path.sep).join('/');
+            if (rel === 'index.html') rel = 'index';
+            else if (rel.endsWith('/index.html')) rel = rel.slice(0, -'/index.html'.length);
+            else rel = rel.replace(/\.html?$/i, '');
+            const candidates = sourceExts.map((ext) => path.posix.join(docsDir, rel + ext));
+            return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+          }
+
+          for (const file of walk(siteDir).filter((candidate) => /\.html?$/i.test(candidate))) {
+            let html = fs.readFileSync(file, 'utf8');
+            html = html.replace(/<meta\s+[^>]*name=["']source-repo["'][^>]*>\s*/gi, '');
+            html = html.replace(/<meta\s+[^>]*name=["']source-path["'][^>]*>\s*/gi, '');
+            const sourcePath = sourceForHtml(file);
+            const meta = [
+              '<meta name="source-repo" content="' + escapeAttr(repo) + '">',
+              '<meta name="source-path" content="' + escapeAttr(sourcePath) + '">',
+            ].join('\\n      ');
+            if (/<head[^>]*>/i.test(html)) {
+              html = html.replace(/<head([^>]*)>/i, '<head$1>\\n      ' + meta);
+            } else {
+              html = meta + '\\n' + html;
+            }
+            fs.writeFileSync(file, html);
+          }
+          NODE
       - name: Ensure Cloudflare Pages project
         run: npx wrangler pages project create "${project}" --production-branch=main || true
         env:

@@ -119,10 +119,10 @@ test("extractRepoFromMeta accepts single-quoted attributes", () => {
 });
 
 test("extractRepoFromMeta reads the generic source-repo meta tag", () => {
-  const html = `<html><head><meta name="source-repo" content="Rocket-Lab-Skunkworks/docs-chat-test"></head></html>`;
+  const html = `<html><head><meta name="source-repo" content="FreeDocStore/freedocstore-test"></head></html>`;
   assert.deepEqual(extractRepoFromMeta(html), {
-    owner: "Rocket-Lab-Skunkworks",
-    name: "docs-chat-test",
+    owner: "FreeDocStore",
+    name: "freedocstore-test",
   });
 });
 

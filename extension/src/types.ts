@@ -230,7 +230,7 @@ export interface PendingNavProposal {
 }
 
 /**
- * A pending addition to .docs-chat/MEMORY.md (the team-shared memory
+ * A pending addition to .freedocstore/MEMORY.md (the team-shared memory
  * file). Same preview/apply flow as edits - the side panel renders the
  * proposed entry, user approves, applyPendingProposal commits the
  * updated file.

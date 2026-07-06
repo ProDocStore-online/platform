@@ -59,7 +59,7 @@ export function initSettingsSync(): void {
   // panel. Both stores carry identical content, so a double-fire is idempotent.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync" && area !== "local") return;
-    const next = changes["docs-chat.settings"]?.newValue as Settings | undefined;
+    const next = changes["freedocstore.settings"]?.newValue as Settings | undefined;
     if (!next) return;
     applyTheme({ theme: next.theme, fontSize: next.fontSize, compact: next.compact });
     state.sendKey = next.sendKey ?? "enter";

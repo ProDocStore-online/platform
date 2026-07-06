@@ -82,14 +82,14 @@ export function slugify(input: string, maxLen = 48): string {
 }
 
 /**
- * Unique branch name: `docs-chat/YYYY-MM-DD/<slug>-<rand>`.
+ * Unique branch name: `freedocstore/YYYY-MM-DD/<slug>-<rand>`.
  * The random suffix avoids collisions when the same edit is proposed twice
  * in one day.
  */
 export function branchName(summary: string, now = new Date()): string {
   const date = now.toISOString().slice(0, 10);
   const rand = Math.random().toString(36).slice(2, 6);
-  return `docs-chat/${date}/${slugify(summary)}-${rand}`;
+  return `freedocstore/${date}/${slugify(summary)}-${rand}`;
 }
 
 /**

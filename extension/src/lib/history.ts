@@ -3,7 +3,7 @@
 // The side panel keeps one conversation per (repo or origin), not one
 // global thread. This module owns the storage shape:
 //
-//   chrome.storage.local["docs-chat.history"]: { [scope]: ChatMessage[] }
+//   chrome.storage.local["freedocstore.history"]: { [scope]: ChatMessage[] }
 //
 // Scope key:
 //   "repo:owner/name"   - when the page resolves to a GitHub repo
@@ -19,7 +19,7 @@
 
 import type { ChatMessage, PageContext, PendingProposal } from "../types";
 
-export const HISTORY_KEY = "docs-chat.history";
+export const HISTORY_KEY = "freedocstore.history";
 export const HISTORY_LIMIT = 500;
 export const NO_CONTEXT_SCOPE = "__nocontext__";
 

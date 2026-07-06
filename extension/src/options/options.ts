@@ -245,8 +245,8 @@ resetBtn.addEventListener("click", async () => {
   // "reset" would silently un-happen. allSettled so a disabled sync area
   // doesn't abort the local wipe (or vice versa).
   await Promise.allSettled([
-    chrome.storage.sync.remove("docs-chat.settings"),
-    chrome.storage.local.remove("docs-chat.settings"),
+    chrome.storage.sync.remove("freedocstore.settings"),
+    chrome.storage.local.remove("freedocstore.settings"),
   ]);
   await loadIntoForm();
   setStatus("Cleared.", "ok");

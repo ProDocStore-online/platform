@@ -77,7 +77,7 @@ export function dlog(label: string, payload?: unknown): void {
     : `[${stamp}] ${label} ${JSON.stringify(payload)}`;
   logBuffer.push(line);
   if (logBuffer.length > LOG_LIMIT) logBuffer.splice(0, logBuffer.length - LOG_LIMIT);
-  console.log(`[docs-chat] ${label}`, payload ?? "");
+  console.log(`[freedocstore] ${label}`, payload ?? "");
   // Mirror the diagnostic line to the debug bridge (no-op when unset).
   postDebug("log", { label, payload });
 }

@@ -23,7 +23,7 @@ export function mergeMemoryEntry(
 
   // Empty file: write a fresh skeleton.
   if (!current.trim()) {
-    return `# Shared docs-chat memory\n\nThis file is loaded by the docs-chat extension on every chat turn. Keep entries durable and short - things the team should remember across sessions and users.\n\n${sectionHeader}\n${bullet}\n`;
+    return `# Shared FreeDocStore memory\n\nThis file is loaded by the FreeDocStore extension on every chat turn. Keep entries durable and short - things the team should remember across sessions and users.\n\n${sectionHeader}\n${bullet}\n`;
   }
 
   // Existing section: append the bullet at the end of that section

@@ -454,7 +454,7 @@ test("reactive 401 adopts a newer stored token instead of refreshing a dead one"
   // token would invalid_grant - so we must adopt the stored token and retry,
   // issuing NO network refresh.
   const { store, restore: restoreStorage } = installChromeStorage();
-  store.set("docs-chat.settings", {
+  store.set("freedocstore.settings", {
     claude: {
       apiKey: "", model: "",
       githubApp: { clientId: "Iv23li", accessToken: "gho_NEW", refreshToken: "ghr_new", expiresAt: Date.now() + ONE_HOUR },

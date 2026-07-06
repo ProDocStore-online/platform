@@ -47,7 +47,7 @@ let showCancelled = false;
 // cancelled). Persisted so the choice sticks across opens.
 let view: "kanban" | "list" = "kanban";
 try {
-  const v = localStorage.getItem("docs-chat.board-view");
+  const v = localStorage.getItem("freedocstore.board-view");
   if (v === "list" || v === "kanban") view = v;
 } catch {
   /* localStorage blocked - default kanban */
@@ -415,7 +415,7 @@ async function setStatus(taskId: string, status: TaskStatus): Promise<void> {
 function setView(next: "kanban" | "list"): void {
   view = next;
   try {
-    localStorage.setItem("docs-chat.board-view", next);
+    localStorage.setItem("freedocstore.board-view", next);
   } catch {
     /* ignore */
   }

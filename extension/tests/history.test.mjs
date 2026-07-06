@@ -115,9 +115,9 @@ test("scopeFromContext: ctx without repo or url -> no-context", () => {
 // ── repoFromScope (inverse of the repo: branch) ─────────────────────
 
 test("repoFromScope: parses a repo scope back to owner/name", () => {
-  assert.deepEqual(repoFromScope("repo:Rocket-Lab-Skunkworks/docs-chat-test"), {
-    owner: "Rocket-Lab-Skunkworks",
-    name: "docs-chat-test",
+  assert.deepEqual(repoFromScope("repo:FreeDocStore/freedocstore-test"), {
+    owner: "FreeDocStore",
+    name: "freedocstore-test",
   });
 });
 

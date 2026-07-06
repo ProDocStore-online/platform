@@ -23,7 +23,7 @@ test("includes context, settings, messages, and log sections", () => {
     logBuffer: ["[12:00:00] sent turn"],
     formatTime: fmt,
   });
-  assert.match(out, /# docs-chat session dump/);
+  assert.match(out, /# FreeDocStore session dump/);
   assert.match(out, /- repo: o\/r/);
   assert.match(out, /- navConfig items: 3/);
   assert.match(out, /## Messages \(1 total\)/);

@@ -18,7 +18,7 @@ import { GitHubClient } from "./github";
 import { loadStoredSettings } from "../settings";
 import { CHAT_BRANCH } from "./freedocstore-chat";
 
-export const TASKS_KEY = "docs-chat.tasks";
+export const TASKS_KEY = "freedocstore.tasks";
 export const TASKS_DIR = ".freedocstore/tasks";
 
 export function taskFilePath(id: string): string {
