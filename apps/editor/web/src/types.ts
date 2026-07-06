@@ -28,6 +28,14 @@ export interface PublishForm {
   slug: string
   owner: string
   customDomain: string
+  companyName: string
+  department: string
+  audience: string
+  knowledgeOwner: string
+  reviewCadence: string
+  complianceMode: string
+  supportChannel: string
+  escalationPath: string
   visibility: 'public' | 'private'
   accessEmailDomain: string
   accessAllowedEmails: string

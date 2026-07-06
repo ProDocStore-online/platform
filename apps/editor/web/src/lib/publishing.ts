@@ -16,6 +16,16 @@ export async function generateKbFiles(settings: Settings, form: PublishForm): Pr
     `Production URL: ${liveTargetFor(form)}`,
     form.customDomain ? `Custom domain: https://${form.customDomain}/` : 'Custom domain: none',
     '',
+    'Company context:',
+    `- Company: ${form.companyName || 'not specified'}`,
+    `- Department: ${form.department || 'not specified'}`,
+    `- Audience: ${form.audience || 'not specified'}`,
+    `- Knowledge owner: ${form.knowledgeOwner || 'not specified'}`,
+    `- Review cadence: ${form.reviewCadence || 'not specified'}`,
+    `- Compliance mode: ${form.complianceMode || 'not specified'}`,
+    `- Support channel: ${form.supportChannel || 'not specified'}`,
+    `- Escalation path: ${form.escalationPath || 'not specified'}`,
+    '',
     'Required files:',
     '- README.md',
     '- .gitignore',
@@ -23,7 +33,11 @@ export async function generateKbFiles(settings: Settings, form: PublishForm): Pr
     '- docs/index.md',
     '- docs/first-principles.md',
     '- docs/assessment-method.md',
+    '- docs/governance.md',
+    '- docs/operations.md',
+    '- docs/support-and-escalation.md',
     '- docs/register.md',
+    '- docs/access-policy.md',
     '',
     'Knowledge-base prompt:',
     form.prompt,
@@ -445,7 +459,7 @@ function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: str
   next = upsertFile(next, '.github/workflows/deploy.yml', workflow)
   next = upsertFile(next, '.gitignore', 'site/\n.cache/\n.DS_Store\n')
   if (!next.some((file) => file.path === 'README.md')) {
-    next.push({ path: 'README.md', content: `# ${form.title}\n\nProDocStore Zensical knowledge base.\n\nSource lives in \`docs/\` and builds with \`python -m zensical build --strict\`.\n` })
+    next.push({ path: 'README.md', content: readmeFor(form) })
   }
   const zensicalIndex = next.findIndex((file) => file.path === 'zensical.toml')
   if (zensicalIndex >= 0) {
@@ -456,13 +470,135 @@ function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: str
   } else {
     next.push({
       path: 'zensical.toml',
-      content: `site_name = "${form.title.replace(/"/g, '\\"')}"\nsite_url = "${siteUrl}"\nrepo_url = "https://github.com/${form.owner}/${form.slug}"\ndocs_dir = "docs"\nsite_dir = "site"\n\n[nav]\nitems = [\n  { title = "Overview", path = "index.md" },\n  { title = "First Principles", path = "first-principles.md" },\n  { title = "Assessment Method", path = "assessment-method.md" },\n  { title = "Register", path = "register.md" },\n]\n`,
+      content: zensicalTomlFor(form, siteUrl),
     })
   }
   if (!next.some((file) => file.path === 'docs/index.md')) {
-    next.push({ path: 'docs/index.md', content: `# ${form.title}\n\n${form.prompt}\n` })
+    next.push({ path: 'docs/index.md', content: indexDocFor(form) })
   }
+  if (!next.some((file) => file.path === 'docs/governance.md')) next.push({ path: 'docs/governance.md', content: governanceDocFor(form) })
+  if (!next.some((file) => file.path === 'docs/operations.md')) next.push({ path: 'docs/operations.md', content: operationsDocFor(form) })
+  if (!next.some((file) => file.path === 'docs/support-and-escalation.md')) next.push({ path: 'docs/support-and-escalation.md', content: supportDocFor(form) })
+  if (!next.some((file) => file.path === 'docs/access-policy.md')) next.push({ path: 'docs/access-policy.md', content: accessPolicyDocFor(form) })
   return next.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+function readmeFor(form: PublishForm) {
+  return [
+    `# ${form.title}`,
+    '',
+    'ProDocStore Zensical knowledge base.',
+    '',
+    `- Company: ${form.companyName || 'Not specified'}`,
+    `- Department: ${form.department || 'Not specified'}`,
+    `- Audience: ${form.audience || 'Not specified'}`,
+    `- Knowledge owner: ${form.knowledgeOwner || 'Not specified'}`,
+    `- Review cadence: ${form.reviewCadence || 'Not specified'}`,
+    `- Compliance mode: ${form.complianceMode || 'Not specified'}`,
+    '- Source: `docs/`',
+    '- Build: `python -m zensical build --strict`',
+  ].join('\n')
+}
+
+function zensicalTomlFor(form: PublishForm, siteUrl: string) {
+  return [
+    `site_name = "${tomlString(form.title)}"`,
+    `site_url = "${tomlString(siteUrl)}"`,
+    `repo_url = "https://github.com/${tomlString(form.owner)}/${tomlString(form.slug)}"`,
+    'docs_dir = "docs"',
+    'site_dir = "site"',
+    '',
+    '[nav]',
+    'items = [',
+    '  { title = "Overview", path = "index.md" },',
+    '  { title = "First Principles", path = "first-principles.md" },',
+    '  { title = "Assessment Method", path = "assessment-method.md" },',
+    '  { title = "Governance", path = "governance.md" },',
+    '  { title = "Operations", path = "operations.md" },',
+    '  { title = "Support and Escalation", path = "support-and-escalation.md" },',
+    '  { title = "Access Policy", path = "access-policy.md" },',
+    '  { title = "Register", path = "register.md" },',
+    ']',
+    '',
+  ].join('\n')
+}
+
+function indexDocFor(form: PublishForm) {
+  return [
+    `# ${form.title}`,
+    '',
+    form.prompt,
+    '',
+    '## Company Context',
+    '',
+    `- Company: ${form.companyName || 'Not specified'}`,
+    `- Department: ${form.department || 'Not specified'}`,
+    `- Audience: ${form.audience || 'Not specified'}`,
+    `- Knowledge owner: ${form.knowledgeOwner || 'Not specified'}`,
+    `- Review cadence: ${form.reviewCadence || 'Not specified'}`,
+    `- Compliance mode: ${form.complianceMode || 'Not specified'}`,
+  ].join('\n')
+}
+
+function governanceDocFor(form: PublishForm) {
+  return [
+    '# Governance',
+    '',
+    `Knowledge owner: ${form.knowledgeOwner || 'Not assigned'}.`,
+    `Review cadence: ${form.reviewCadence || 'Not specified'}.`,
+    `Compliance mode: ${form.complianceMode || 'Standard internal controls'}.`,
+    '',
+    '## Operating Rules',
+    '',
+    '- Every page should have an accountable owner.',
+    '- Material process changes should be reviewed before publishing.',
+    '- Stale, disputed, or superseded guidance should be marked clearly.',
+    '- Evidence, decisions, and exceptions should link to source records where possible.',
+  ].join('\n')
+}
+
+function operationsDocFor(form: PublishForm) {
+  return [
+    '# Operations',
+    '',
+    `Department: ${form.department || 'Not specified'}.`,
+    `Audience: ${form.audience || 'Not specified'}.`,
+    '',
+    '## Expected Use',
+    '',
+    '- Use this KB as the first source for routine work.',
+    '- Keep procedures short, current, and connected to evidence.',
+    '- Prefer checklists and decision records over informal notes.',
+  ].join('\n')
+}
+
+function supportDocFor(form: PublishForm) {
+  return [
+    '# Support and Escalation',
+    '',
+    `Support channel: ${form.supportChannel || 'Not specified'}.`,
+    `Escalation path: ${form.escalationPath || 'Not specified'}.`,
+    '',
+    '## Intake',
+    '',
+    '- Capture the issue, impacted audience, urgency, and source page.',
+    '- Route unclear ownership to the knowledge owner.',
+    '- Escalate security, legal, HR, or customer-impacting items before publishing.',
+  ].join('\n')
+}
+
+function accessPolicyDocFor(form: PublishForm) {
+  return [
+    '# Access Policy',
+    '',
+    `Visibility: ${form.visibility}.`,
+    `Staff email domain: ${form.accessEmailDomain || 'Not specified'}.`,
+    `Allowed emails: ${form.accessAllowedEmails || 'Not specified'}.`,
+    `Client email domain: ${form.accessClientDomain || 'Not specified'}.`,
+    `Office CIDRs: ${form.accessOfficeCidrs || 'Not specified'}.`,
+    '',
+    'Private KBs are closed by default and should only expose content through explicit Cloudflare Access rules.',
+  ].join('\n')
 }
 
 function validatePrivateAccess(form: PublishForm) {
@@ -537,6 +673,10 @@ function commaList(value: string) {
 
 function yamlString(value: string) {
   return JSON.stringify(value)
+}
+
+function tomlString(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 function repoApiPath(repo: string) {

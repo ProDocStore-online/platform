@@ -40,9 +40,10 @@ export function FilesPreview({ files, summary, form }: { files: RepoFile[]; summ
   const plannedFiles = useMemo(() => plannedRepoPreview(form), [form])
   const displayFiles = files.length ? files : plannedFiles
   const [selected, setSelected] = useState('')
-  const current = displayFiles.find((file) => file.path === selected) ?? displayFiles[0]
+  const preferred = displayFiles.find((file) => file.path === 'docs/index.md') ?? displayFiles[0]
+  const current = displayFiles.find((file) => file.path === selected) ?? preferred
   useEffect(() => {
-    if (displayFiles[0] && !displayFiles.some((file) => file.path === selected)) setSelected(displayFiles[0].path)
+    if (preferred && !displayFiles.some((file) => file.path === selected)) setSelected(preferred.path)
   }, [displayFiles, selected])
   return (
     <div className="preview-body">
@@ -84,6 +85,10 @@ function plannedRepoPreview(form: PublishForm): RepoFile[] {
         '  { title = "Start", path = "index.md" },',
         '  { title = "First Principles", path = "first-principles.md" },',
         '  { title = "Assessment Method", path = "assessment-method.md" },',
+        '  { title = "Governance", path = "governance.md" },',
+        '  { title = "Operations", path = "operations.md" },',
+        '  { title = "Support and Escalation", path = "support-and-escalation.md" },',
+        '  { title = "Access Policy", path = "access-policy.md" },',
         '  { title = "Register", path = "register.md" }',
         ']',
       ].join('\n'),
@@ -94,6 +99,55 @@ function plannedRepoPreview(form: PublishForm): RepoFile[] {
         `# ${title}`,
         '',
         form.prompt || 'Describe the knowledge base you want to publish. ProDocStore will generate Markdown source files for a Zensical book.',
+        '',
+        '## Company Context',
+        '',
+        `- Company: ${form.companyName || 'Not specified'}`,
+        `- Department: ${form.department || 'Not specified'}`,
+        `- Audience: ${form.audience || 'Not specified'}`,
+        `- Knowledge owner: ${form.knowledgeOwner || 'Not specified'}`,
+        `- Review cadence: ${form.reviewCadence || 'Not specified'}`,
+        `- Compliance mode: ${form.complianceMode || 'Not specified'}`,
+      ].join('\n'),
+    },
+    {
+      path: 'docs/governance.md',
+      content: [
+        '# Governance',
+        '',
+        `Knowledge owner: ${form.knowledgeOwner || 'Not assigned'}.`,
+        `Review cadence: ${form.reviewCadence || 'Not specified'}.`,
+        `Compliance mode: ${form.complianceMode || 'Standard internal controls'}.`,
+      ].join('\n'),
+    },
+    {
+      path: 'docs/operations.md',
+      content: [
+        '# Operations',
+        '',
+        `Department: ${form.department || 'Not specified'}.`,
+        `Audience: ${form.audience || 'Not specified'}.`,
+      ].join('\n'),
+    },
+    {
+      path: 'docs/support-and-escalation.md',
+      content: [
+        '# Support and Escalation',
+        '',
+        `Support channel: ${form.supportChannel || 'Not specified'}.`,
+        `Escalation path: ${form.escalationPath || 'Not specified'}.`,
+      ].join('\n'),
+    },
+    {
+      path: 'docs/access-policy.md',
+      content: [
+        '# Access Policy',
+        '',
+        `Visibility: ${form.visibility}.`,
+        `Staff email domain: ${form.accessEmailDomain || 'Not specified'}.`,
+        `Allowed emails: ${form.accessAllowedEmails || 'Not specified'}.`,
+        `Client email domain: ${form.accessClientDomain || 'Not specified'}.`,
+        `Office CIDRs: ${form.accessOfficeCidrs || 'Not specified'}.`,
       ].join('\n'),
     },
     {
@@ -125,6 +179,10 @@ function plannedRepoPreview(form: PublishForm): RepoFile[] {
         'ProDocStore knowledge base.',
         '',
         '- Engine: Zensical',
+        `- Company: ${form.companyName || 'Not specified'}`,
+        `- Department: ${form.department || 'Not specified'}`,
+        `- Audience: ${form.audience || 'Not specified'}`,
+        `- Knowledge owner: ${form.knowledgeOwner || 'Not specified'}`,
         '- Source: `docs/`',
         '- Build output: `site/`',
         `- Production target: ${productionUrl}`,

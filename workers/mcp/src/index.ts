@@ -43,6 +43,14 @@ interface WorkspaceDraft {
   slug?: string;
   owner?: string;
   customDomain?: string;
+  companyName?: string;
+  department?: string;
+  audience?: string;
+  knowledgeOwner?: string;
+  reviewCadence?: string;
+  complianceMode?: string;
+  supportChannel?: string;
+  escalationPath?: string;
   visibility?: string;
   prompt?: string;
   liveUrl?: string;
@@ -102,6 +110,10 @@ function renderDraft(draft: WorkspaceDraft): string {
     `Repo URL: ${draft.repoUrl || "(not published)"}`,
     `Live URL: ${draft.liveUrl || (draft.slug ? `https://${draft.slug}.pages.dev/` : "(not set)")}`,
     `Custom domain: ${draft.customDomain || "(none)"}`,
+    `Company: ${draft.companyName || "(not specified)"}`,
+    `Department: ${draft.department || "(not specified)"}`,
+    `Audience: ${draft.audience || "(not specified)"}`,
+    `Knowledge owner: ${draft.knowledgeOwner || "(not assigned)"}`,
     `Generated files: ${files.length ? files.join(", ") : "(none)"}`,
     `Updated: ${draft.updatedAt ?? "(unknown)"}`,
   ].join("\n");
@@ -125,17 +137,42 @@ function clonePublishSteps() {
   ];
 }
 
-function sampleFiles(title: string, prompt: string, slug: string, customDomain = "") {
-  const productionUrl = customDomain ? `https://${customDomain}/` : `https://${slug}.pages.dev/`;
+function sampleFiles(input: {
+  title: string;
+  prompt: string;
+  slug: string;
+  customDomain?: string;
+  companyName?: string;
+  department?: string;
+  audience?: string;
+  knowledgeOwner?: string;
+  reviewCadence?: string;
+  complianceMode?: string;
+  supportChannel?: string;
+  escalationPath?: string;
+}) {
+  const productionUrl = input.customDomain ? `https://${input.customDomain}/` : `https://${input.slug}.pages.dev/`;
   return [
     {
       path: "README.md",
-      content: `# ${title}\n\nProDocStore sample knowledge base created through MCP.\n\n- Engine: Zensical\n- Source: docs/\n- Production target: ${productionUrl}\n`,
+      content: [
+        `# ${input.title}`,
+        "",
+        "ProDocStore sample knowledge base created through MCP.",
+        "",
+        "- Engine: Zensical",
+        "- Source: docs/",
+        `- Production target: ${productionUrl}`,
+        `- Company: ${input.companyName || "Not specified"}`,
+        `- Department: ${input.department || "Not specified"}`,
+        `- Audience: ${input.audience || "Not specified"}`,
+        `- Knowledge owner: ${input.knowledgeOwner || "Not assigned"}`,
+      ].join("\n"),
     },
     {
       path: "zensical.toml",
       content: [
-        `title = "${title.replace(/"/g, '\\"')}"`,
+        `title = "${input.title.replace(/"/g, '\\"')}"`,
         `base_url = "${productionUrl}"`,
         'content_dir = "docs"',
         'output_dir = "site"',
@@ -143,20 +180,57 @@ function sampleFiles(title: string, prompt: string, slug: string, customDomain =
         "[navigation]",
         "items = [",
         '  { title = "Start", path = "index.md" },',
-        '  { title = "Assessment", path = "assessment.md" }',
+        '  { title = "Governance", path = "governance.md" },',
+        '  { title = "Operations", path = "operations.md" },',
+        '  { title = "Support and Escalation", path = "support-and-escalation.md" }',
         "]",
       ].join("\n"),
     },
     {
       path: "docs/index.md",
-      content: [`# ${title}`, "", prompt, "", "This draft was created through the ProDocStore MCP server."].join("\n"),
+      content: [
+        `# ${input.title}`,
+        "",
+        input.prompt,
+        "",
+        "## Company Context",
+        "",
+        `- Company: ${input.companyName || "Not specified"}`,
+        `- Department: ${input.department || "Not specified"}`,
+        `- Audience: ${input.audience || "Not specified"}`,
+        `- Knowledge owner: ${input.knowledgeOwner || "Not assigned"}`,
+        `- Review cadence: ${input.reviewCadence || "Not specified"}`,
+        `- Compliance mode: ${input.complianceMode || "Not specified"}`,
+        "",
+        "This draft was created through the ProDocStore MCP server.",
+      ].join("\n"),
     },
     {
-      path: "docs/assessment.md",
+      path: "docs/governance.md",
       content: [
-        "# Assessment",
+        "# Governance",
         "",
-        "Use this page to define the rubric, evidence sources, and maintenance process for this knowledge base.",
+        `Knowledge owner: ${input.knowledgeOwner || "Not assigned"}.`,
+        `Review cadence: ${input.reviewCadence || "Not specified"}.`,
+        `Compliance mode: ${input.complianceMode || "Standard internal controls"}.`,
+      ].join("\n"),
+    },
+    {
+      path: "docs/operations.md",
+      content: [
+        "# Operations",
+        "",
+        `Department: ${input.department || "Not specified"}.`,
+        `Audience: ${input.audience || "Not specified"}.`,
+      ].join("\n"),
+    },
+    {
+      path: "docs/support-and-escalation.md",
+      content: [
+        "# Support and Escalation",
+        "",
+        `Support channel: ${input.supportChannel || "Not specified"}.`,
+        `Escalation path: ${input.escalationPath || "Not specified"}.`,
       ].join("\n"),
     },
   ];
@@ -168,6 +242,14 @@ function makeWorkspaceDraft(input: {
   slug: string;
   owner: string;
   customDomain?: string;
+  companyName?: string;
+  department?: string;
+  audience?: string;
+  knowledgeOwner?: string;
+  reviewCadence?: string;
+  complianceMode?: string;
+  supportChannel?: string;
+  escalationPath?: string;
   visibility?: string;
 }): WorkspaceDraft {
   const now = new Date().toISOString();
@@ -177,9 +259,17 @@ function makeWorkspaceDraft(input: {
     slug: input.slug,
     owner: input.owner,
     customDomain: input.customDomain ?? "",
+    companyName: input.companyName ?? "",
+    department: input.department ?? "Operations",
+    audience: input.audience ?? "Internal staff",
+    knowledgeOwner: input.knowledgeOwner ?? "",
+    reviewCadence: input.reviewCadence ?? "Quarterly",
+    complianceMode: input.complianceMode ?? "Standard internal controls",
+    supportChannel: input.supportChannel ?? "",
+    escalationPath: input.escalationPath ?? "",
     visibility: input.visibility ?? "public",
     prompt: input.prompt,
-    files: sampleFiles(input.title, input.prompt, input.slug, input.customDomain),
+    files: sampleFiles(input),
     liveUrl: "",
     repoUrl: "",
     lastStatus: "Created via MCP",
@@ -257,6 +347,10 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
               repoUrl: active.repoUrl || null,
               liveUrl: active.liveUrl || null,
               customDomain: active.customDomain || null,
+              companyName: active.companyName || null,
+              department: active.department || null,
+              audience: active.audience || null,
+              knowledgeOwner: active.knowledgeOwner || null,
               generatedFileCount: active.files?.length ?? 0,
             } : null,
             settings: settings ?? null,
@@ -287,9 +381,17 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
         prompt: z.string().describe("What this KB should cover"),
         slug: z.string().optional().describe("Preferred slug. A suffix is added if it already exists."),
         custom_domain: z.string().optional().describe("Optional custom domain, without scheme"),
+        company_name: z.string().optional().describe("Company or client name this KB is for"),
+        department: z.string().optional().describe("Department or operating function, for example Operations or Customer Success"),
+        audience: z.string().optional().describe("Primary readers, for example internal staff, client admins, or contractors"),
+        knowledge_owner: z.string().optional().describe("Accountable team or person for reviewing the KB"),
+        review_cadence: z.string().optional().describe("Review cadence, for example monthly, quarterly, or before release"),
+        compliance_mode: z.string().optional().describe("Relevant control posture, for example SOC 2, ISO 27001, HIPAA, or internal controls"),
+        support_channel: z.string().optional().describe("Support intake channel for KB issues"),
+        escalation_path: z.string().optional().describe("Escalation route for sensitive or urgent KB issues"),
         visibility: z.enum(["public", "private"]).optional().describe("Repo visibility to use when published"),
       },
-      async ({ title, prompt, slug, custom_domain, visibility }) => {
+      async ({ title, prompt, slug, custom_domain, company_name, department, audience, knowledge_owner, review_cadence, compliance_mode, support_channel, escalation_path, visibility }) => {
         const userId = requireWorkspaceWrite(this.env, this.props);
         const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "pds:kbs:v1");
         const drafts = Array.isArray(current) ? current : [];
@@ -299,6 +401,14 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
           slug: nextDraftSlug(drafts, slug ?? title),
           owner: this.env.GITHUB_ORG,
           customDomain: custom_domain ?? "",
+          companyName: company_name ?? "",
+          department: department ?? "Operations",
+          audience: audience ?? "Internal staff",
+          knowledgeOwner: knowledge_owner ?? "",
+          reviewCadence: review_cadence ?? "Quarterly",
+          complianceMode: compliance_mode ?? "Standard internal controls",
+          supportChannel: support_channel ?? "",
+          escalationPath: escalation_path ?? "",
           visibility: visibility ?? "public",
         });
         await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
@@ -321,6 +431,14 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
           prompt: "A small sample knowledge base created through MCP to verify ProDocStore account visibility and draft creation.",
           slug: nextDraftSlug(drafts, "mcp-sample-knowledge-base"),
           owner: this.env.GITHUB_ORG,
+          companyName: "Example Company",
+          department: "Operations",
+          audience: "Internal staff",
+          knowledgeOwner: "Operations Enablement",
+          reviewCadence: "Quarterly",
+          complianceMode: "Standard internal controls",
+          supportChannel: "#kb-support",
+          escalationPath: "Operations manager, security, legal",
         });
         await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
         await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:active-kb:v1"), JSON.stringify(draft.id));

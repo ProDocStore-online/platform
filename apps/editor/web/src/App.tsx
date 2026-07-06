@@ -292,12 +292,7 @@ function EditorApp() {
   }
 
   function updateActiveForm(form: PublishForm) {
-    const changedGeneratedContract =
-      form.title !== activeKb.title ||
-      form.slug !== activeKb.slug ||
-      form.owner !== activeKb.owner ||
-      form.customDomain !== activeKb.customDomain ||
-      form.prompt !== activeKb.prompt
+    const changedGeneratedContract = JSON.stringify(form) !== JSON.stringify(toPublishForm(activeKb))
     updateActiveKb({
       ...form,
       ...(changedGeneratedContract
@@ -334,6 +329,10 @@ function EditorApp() {
       slug: nextAvailableSlug(kbs, 'new-knowledge-base'),
       owner,
       customDomain: '',
+      companyName: '',
+      knowledgeOwner: '',
+      supportChannel: '',
+      escalationPath: '',
       prompt: '',
     })
     setKbs((current) => [next, ...current])
@@ -1394,6 +1393,22 @@ function PublishPanel({
           <span>Custom domain</span>
           <strong>{form.customDomain ? `https://${form.customDomain}/` : 'Not attached'}</strong>
         </div>
+      </div>
+      <div className="section-title split-title company-scope-title">
+        <div>
+          <h2>Company scope</h2>
+          <p>These fields shape the generated governance, operations, and support docs.</p>
+        </div>
+      </div>
+      <div className="field-grid two">
+        <Field label="Company name" value={form.companyName} onChange={(v) => update('companyName', v)} placeholder="Acme Inc." />
+        <Field label="Department" value={form.department} onChange={(v) => update('department', v)} placeholder="Operations" />
+        <Field label="Audience" value={form.audience} onChange={(v) => update('audience', v)} placeholder="Internal staff, client admins" />
+        <Field label="Knowledge owner" value={form.knowledgeOwner} onChange={(v) => update('knowledgeOwner', v)} placeholder="Ops Enablement" />
+        <Field label="Review cadence" value={form.reviewCadence} onChange={(v) => update('reviewCadence', v)} placeholder="Quarterly" />
+        <Field label="Compliance mode" value={form.complianceMode} onChange={(v) => update('complianceMode', v)} placeholder="SOC 2, ISO 27001, HIPAA, internal controls" />
+        <Field label="Support channel" value={form.supportChannel} onChange={(v) => update('supportChannel', v)} placeholder="helpdesk@company.com or #kb-support" />
+        <Field label="Escalation path" value={form.escalationPath} onChange={(v) => update('escalationPath', v)} placeholder="Manager, security, legal, HR" />
       </div>
       <label className="field">
         <span>Knowledge-base prompt</span>
