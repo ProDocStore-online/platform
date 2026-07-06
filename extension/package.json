@@ -1,7 +1,7 @@
 {
   "name": "freedocstore-extension",
   "private": true,
-  "version": "0.47.2",
+  "version": "0.47.3",
   "description": "FreeDocStore browser extension - AI-first editing for GitHub-backed public knowledge bases.",
   "type": "module",
   "scripts": {

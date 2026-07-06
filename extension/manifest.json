@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FreeDocStore AI Editor",
-  "version": "0.47.2",
+  "version": "0.47.3",
   "description": "AI-first editor for GitHub-backed docs. Prompt for changes, review proposals, and use GitHub for manual edits.",
   "permissions": ["activeTab", "storage", "sidePanel", "scripting"],
   "host_permissions": [
