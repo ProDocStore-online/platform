@@ -49,7 +49,15 @@ interface PlatformConnections {
   github: ConnectionState
   openai: ConnectionState
   cloudflare: ConnectionState
+  mcp: ConnectionState
   detail: string
+}
+
+interface McpHealth {
+  ok: boolean
+  oauthConfigured: boolean
+  storageConfigured: boolean
+  callbackUrl: string
 }
 
 interface PublishForm {
@@ -113,6 +121,7 @@ const initialConnections: PlatformConnections = {
   github: 'unchecked',
   openai: 'needs-setup',
   cloudflare: 'ready',
+  mcp: 'unchecked',
   detail: 'Save your OpenAI BYOK key once in your ProDocStore account. Cloudflare deploy credentials live in platform/org secrets.',
 }
 
@@ -696,11 +705,16 @@ function EditorApp() {
   }
 
   async function checkConnections() {
-    setConnections({ ...initialConnections, github: 'checking', openai: secrets.openai.configured ? 'checking' : 'needs-setup' })
+    setConnections({ ...initialConnections, github: 'checking', openai: secrets.openai.configured ? 'checking' : 'needs-setup', mcp: 'checking' })
     setStatus('Checking platform connections')
     try {
       validatePlatformAccess(user)
-      const github = await app.proxy.fetch('api.github.com/user', { headers: githubHeaders() })
+      const [platform, mcp] = await Promise.all([
+        app.platform.status(),
+        fetch('https://mcp.prodocstore.online/health').then((res) => res.ok ? res.json() as Promise<McpHealth> : null).catch(() => null),
+      ])
+      const githubReady = platform.github.oauthConfigured && platform.github.publishingTokenConfigured
+      const mcpReady = Boolean(mcp?.oauthConfigured && mcp.storageConfigured)
       let currentSecrets = secrets
       if (!currentSecrets.openai.configured) {
         currentSecrets = await app.secrets.get()
@@ -721,19 +735,21 @@ function EditorApp() {
           })
         : null
       const openaiError = openai && !openai.ok ? await openai.text() : ''
+      const detailParts = [
+        githubReady ? `GitHub publishing is configured for ${platform.github.org}.` : 'GitHub publishing needs the platform OAuth app and publishing token.',
+        openai?.ok ? 'OpenAI BYOK is valid.' : currentSecrets.openai.configured ? `OpenAI ${openai?.status ?? 'not checked'}${openaiError ? `: ${openaiError}` : ''}.` : 'OpenAI needs your BYOK key.',
+        mcpReady ? 'MCP OAuth is configured.' : `MCP OAuth is not configured${mcp?.callbackUrl ? `; create its GitHub OAuth app with callback ${mcp.callbackUrl}.` : '.'}`,
+      ]
       setConnections({
-        github: github.ok ? 'ready' : 'needs-setup',
+        github: githubReady ? 'ready' : 'needs-setup',
         openai: openai?.ok ? 'ready' : 'needs-setup',
         cloudflare: 'ready',
-        detail: openai?.ok && github.ok
-          ? 'Connections are ready. GitHub uses platform OAuth/proxy and OpenAI uses your BYOK key.'
-          : currentSecrets.openai.configured
-            ? `GitHub ${github.status}; OpenAI ${openai?.status ?? 'not checked'}. ${openaiError || 'Check your OpenAI account/key.'}`
-            : `GitHub ${github.status}; OpenAI needs your BYOK key in Profile > Platform connections.`,
+        mcp: mcpReady ? 'ready' : 'needs-setup',
+        detail: detailParts.join(' '),
       })
-      setStatus(github.ok && openai?.ok ? 'Platform connections ready' : 'Some platform connections need setup')
+      setStatus(githubReady && openai?.ok && mcpReady ? 'Platform connections ready' : 'Some platform connections need setup')
     } catch (error) {
-      setConnections({ github: 'error', openai: secrets.openai.configured ? 'error' : 'needs-setup', cloudflare: 'ready', detail: messageOf(error) })
+      setConnections({ github: 'error', openai: secrets.openai.configured ? 'error' : 'needs-setup', cloudflare: 'ready', mcp: 'error', detail: messageOf(error) })
       setStatus(messageOf(error))
     }
   }
@@ -1188,16 +1204,17 @@ function SettingsPanel({
   manageKeys?: boolean
 }) {
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => setSettings({ ...settings, [key]: value })
-  const connectedCount = [connections.github, connections.openai, connections.cloudflare].filter((state) => state === 'ready').length
+  const connectedCount = [connections.github, connections.openai, connections.cloudflare, connections.mcp].filter((state) => state === 'ready').length
+  const connectionTotal = 4
   const openAiKeyStatus = secrets.openai.configured ? `Saved as ${secrets.openai.label}` : 'No OpenAI key saved'
   return (
-    <details className="section-block settings-details" open={!compact || connectedCount < 3}>
+    <details className="section-block settings-details" open={!compact || connectedCount < connectionTotal}>
       <summary>
         <span className="summary-title">
           <KeyRound size={18} />
           <span>
             <strong>Platform connections</strong>
-            <small>{connectedCount}/3 ready. API keys are managed from Profile.</small>
+            <small>{connectedCount}/{connectionTotal} ready. API keys are managed from Profile.</small>
           </span>
         </span>
       </summary>
@@ -1205,6 +1222,7 @@ function SettingsPanel({
         <ConnectionBadge label="GitHub" state={connections.github} detail="Repository create/read/write through the platform proxy" />
         <ConnectionBadge label="OpenAI" state={connections.openai} detail="AI generation through your saved BYOK key" />
         <ConnectionBadge label="Cloudflare" state={connections.cloudflare} detail="Deploy credentials held by platform/org secrets" />
+        <ConnectionBadge label="MCP" state={connections.mcp} detail="Claude/Codex remote MCP sign-in and KB draft tools" />
       </div>
       <p className="connection-detail">{connections.detail}</p>
       <div className="byok-strip">

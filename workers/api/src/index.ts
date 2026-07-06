@@ -99,6 +99,27 @@ app.get("/", (c) => c.json({
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "prodocstore-api" }));
 
+app.get("/api/platform/status", (c) => {
+  requireSession(c);
+  return c.json({
+    ok: true,
+    github: {
+      oauthConfigured: Boolean(c.env.GITHUB_CLIENT_ID && c.env.GITHUB_CLIENT_SECRET),
+      publishingTokenConfigured: Boolean(c.env.GITHUB_TOKEN),
+      org: c.env.GITHUB_ORG,
+    },
+    google: {
+      oauthConfigured: Boolean(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
+    },
+    openai: {
+      byok: true,
+    },
+    cloudflare: {
+      deployConnection: "github-actions-org-secret",
+    },
+  });
+});
+
 app.get("/api/me", (c) => {
   const session = c.get("session");
   return c.json({

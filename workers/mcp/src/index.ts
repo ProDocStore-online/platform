@@ -536,6 +536,16 @@ Registry record:
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/health") {
+      return jsonResponse({
+        ok: true,
+        service: "prodocstore-mcp",
+        oauthConfigured: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
+        storageConfigured: Boolean(env.OAUTH_KV && env.PDS_API_KV),
+        githubOrg: env.GITHUB_ORG,
+        callbackUrl: "https://mcp.prodocstore.online/callback",
+      });
+    }
     if (url.pathname === "/" || url.pathname === "") {
       return new Response(
         [
@@ -552,7 +562,7 @@ export default {
           "",
           "Tools: whoami, workspace_summary, list_workspace_drafts, create_workspace_draft, create_sample_knowledge_base, platform_guide, list_knowledge_bases, knowledge_base_info, check_zensical_repo, list_files, read_file, deploy_status, publish_plan",
           "",
-          "Auth: OAuth 2.1 via GitHub sign-in when connected through mcp-remote or Claude.",
+          `Auth: OAuth 2.1 via GitHub sign-in when connected through mcp-remote or Claude. Configured: ${env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET ? "yes" : "no"}.`,
         ].join("\n"),
         { headers: { "content-type": "text/plain; charset=utf-8" } },
       );
@@ -573,3 +583,12 @@ const oauthProvider = new OAuthProvider({
   scopesSupported: ["read", "write"],
   accessTokenTTL: 86_400,
 });
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  headers.set("access-control-allow-origin", "*");
+  headers.set("access-control-allow-methods", "GET, OPTIONS");
+  headers.set("access-control-allow-headers", "content-type, accept");
+  return new Response(JSON.stringify(body), { ...init, headers });
+}

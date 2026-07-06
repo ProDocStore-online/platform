@@ -23,6 +23,23 @@ export interface SecretStatus {
   }
 }
 
+export interface PlatformStatus {
+  github: {
+    oauthConfigured: boolean
+    publishingTokenConfigured: boolean
+    org: string
+  }
+  google: {
+    oauthConfigured: boolean
+  }
+  openai: {
+    byok: boolean
+  }
+  cloudflare: {
+    deployConnection: string
+  }
+}
+
 const API_BASE = (import.meta.env.VITE_PDS_API_BASE as string | undefined) || 'https://api.prodocstore.online'
 const THEME_KEY = 'pds:theme:v1'
 
@@ -85,6 +102,11 @@ export const pds = {
         method: 'DELETE',
       })
       return { openai: data.openai }
+    },
+  },
+  platform: {
+    status(): Promise<PlatformStatus> {
+      return apiJson<PlatformStatus>('/api/platform/status')
     },
   },
 }
