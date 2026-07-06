@@ -1,0 +1,194 @@
+.preview-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-muted);
+}
+
+.preview-tab {
+  flex: 0 0 auto;
+  min-height: 36px;
+  background: var(--panel);
+}
+
+.preview-body {
+  display: grid;
+  min-height: 420px;
+}
+
+.preview-summary {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-summary strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.preview-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.file-preview-layout {
+  display: grid;
+  min-height: 0;
+}
+
+.file-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-muted);
+}
+
+.file-row {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: 12px;
+}
+
+.file-row.active {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 10%, var(--panel));
+}
+
+.code-view {
+  min-height: 340px;
+  max-height: 68dvh;
+  margin: 0;
+  overflow: auto;
+  background: #101828;
+  color: #f8fafc;
+  padding: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 340px;
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+}
+
+.auth-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.auth-landing {
+  background:
+    linear-gradient(180deg, rgba(11, 92, 173, 0.08), rgba(11, 92, 173, 0) 38%),
+    var(--bg);
+}
+
+.auth-card {
+  display: grid;
+  justify-items: start;
+  width: min(560px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.auth-card h1 {
+  max-width: 480px;
+}
+
+.auth-card .lede {
+  margin-bottom: 22px;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.provider-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.store-footer {
+  padding: 18px 4px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.mobile-tabbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  min-height: var(--mobile-tab-h);
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  backdrop-filter: blur(14px);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+
+.mobile-tab {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.mobile-tab.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -46,6 +46,29 @@ import {
   validatePublishForm,
   writeFiles,
 } from './lib/publishing'
+import {
+  ACTIVE_KB_KEY,
+  CONFIG_KEY,
+  KBS_KEY,
+  PDS_MCP,
+  cloneSteps,
+  createKnowledgeBase,
+  displayName,
+  emptySettings,
+  initialConnections,
+  initialSteps,
+  nextAvailableSlug,
+  normalizeKnowledgeBase,
+  normalizeSettings,
+  nowIso,
+  pathForRoute,
+  pushRoute,
+  routeFromLocation,
+  starterEdit,
+  starterPublish,
+  toPublishForm,
+} from './lib/editor-state'
+import { EditPreview, Field, FilesPreview, PreviewTabs } from './components/previews'
 import type {
   AppRoute,
   AuthProvider,
@@ -57,26 +80,12 @@ import type {
   Proposal,
   PublishForm,
   PublishStep,
-  RepoFile,
   Settings,
-  StepState,
 } from './types'
-
-const DEFAULT_MODEL = 'gpt-4.1-mini'
-const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
-const PDS_MCP = 'https://mcp.prodocstore.online/mcp'
-const CONFIG_KEY = 'pds:config:v1'
-const KBS_KEY = 'pds:kbs:v1'
-const ACTIVE_KB_KEY = 'pds:active-kb:v1'
 
 type PwaInstallPrompt = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
-}
-
-const emptySettings: Settings = {
-  openaiEndpoint: DEFAULT_ENDPOINT,
-  model: DEFAULT_MODEL,
 }
 
 const emptySecrets: SecretStatus = {
@@ -84,146 +93,6 @@ const emptySecrets: SecretStatus = {
     configured: false,
     label: '',
   },
-}
-
-const initialConnections: PlatformConnections = {
-  github: 'unchecked',
-  openai: 'needs-setup',
-  cloudflare: 'ready',
-  mcp: 'unchecked',
-  detail: 'Save your OpenAI BYOK key once in your ProDocStore account. Cloudflare deploy credentials live in platform/org secrets.',
-}
-
-const starterPublish: PublishForm = {
-  title: 'Customer Knowledge Base',
-  slug: 'customer-knowledge-base',
-  owner: 'ProDocStore-online',
-  customDomain: '',
-  visibility: 'private',
-  accessEmailDomain: '',
-  accessAllowedEmails: '',
-  accessClientDomain: '',
-  accessOfficeCidrs: '',
-  accessRulesJson: '',
-  prompt:
-    'A private staff knowledge base for onboarding, operating procedures, policies, and decision records.',
-}
-
-const starterEdit: EditForm = {
-  repo: 'ProDocStore-online/customer-knowledge-base',
-  branch: 'main',
-  path: 'docs/index.md',
-  instruction: 'Make this page clearer for a new reader while preserving the same factual claims.',
-}
-
-const initialSteps: PublishStep[] = [
-  { id: 'plan', label: 'Plan', detail: 'Create Zensical structure', state: 'idle' },
-  { id: 'ai', label: 'Draft', detail: 'Generate Markdown files', state: 'idle' },
-  { id: 'repo', label: 'Repo', detail: 'Create GitHub repository', state: 'idle' },
-  { id: 'secrets', label: 'Secrets', detail: 'Install Cloudflare deploy secrets', state: 'idle' },
-  { id: 'files', label: 'Files', detail: 'Commit Zensical source', state: 'idle' },
-  { id: 'deploy', label: 'Deploy', detail: 'GitHub Actions publishes to Cloudflare', state: 'idle' },
-]
-
-function cloneSteps() {
-  return initialSteps.map((step) => ({ ...step }))
-}
-
-function nowIso() {
-  return new Date().toISOString()
-}
-
-function createKnowledgeBase(form: PublishForm): KnowledgeBaseDraft {
-  const timestamp = nowIso()
-  return {
-    ...form,
-    customDomain: normalizeDomain(form.customDomain),
-    id: crypto.randomUUID(),
-    files: [],
-    liveUrl: '',
-    repoUrl: '',
-    lastStatus: 'Draft',
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    steps: cloneSteps(),
-  }
-}
-
-function normalizeSettings(value: Partial<Settings> | null | undefined): Settings {
-  return {
-    openaiEndpoint: typeof value?.openaiEndpoint === 'string' && value.openaiEndpoint.trim()
-      ? value.openaiEndpoint
-      : DEFAULT_ENDPOINT,
-    model: typeof value?.model === 'string' && value.model.trim() ? value.model : DEFAULT_MODEL,
-  }
-}
-
-function normalizeKnowledgeBase(value: Partial<KnowledgeBaseDraft> & PublishForm): KnowledgeBaseDraft {
-  const base = createKnowledgeBase({ ...starterPublish, ...value })
-  return {
-    ...base,
-    id: value.id || base.id,
-    files: Array.isArray(value.files) ? value.files : [],
-    liveUrl: value.liveUrl || '',
-    repoUrl: value.repoUrl || '',
-    lastStatus: value.lastStatus || 'Draft',
-    createdAt: value.createdAt || base.createdAt,
-    updatedAt: value.updatedAt || base.updatedAt,
-    steps: Array.isArray(value.steps) && value.steps.length ? value.steps : cloneSteps(),
-  }
-}
-
-function toPublishForm(kb: KnowledgeBaseDraft): PublishForm {
-  return {
-    title: kb.title,
-    slug: kb.slug,
-    owner: kb.owner,
-    customDomain: kb.customDomain,
-    visibility: kb.visibility,
-    accessEmailDomain: kb.accessEmailDomain,
-    accessAllowedEmails: kb.accessAllowedEmails,
-    accessClientDomain: kb.accessClientDomain,
-    accessOfficeCidrs: kb.accessOfficeCidrs,
-    accessRulesJson: kb.accessRulesJson,
-    prompt: kb.prompt,
-  }
-}
-
-function nextAvailableSlug(kbs: KnowledgeBaseDraft[], desired: string) {
-  const base = slugify(desired) || 'knowledge-base'
-  const used = new Set(kbs.map((kb) => kb.slug))
-  if (!used.has(base)) return base
-  for (let i = 2; i < 1000; i++) {
-    const candidate = `${base}-${i}`
-    if (!used.has(candidate)) return candidate
-  }
-  return `${base}-${Date.now()}`
-}
-
-function displayName(user: User) {
-  return user.name || user.login || user.id || 'User'
-}
-
-function normalizeRoute(raw: string): AppRoute {
-  const route = raw.replace(/^#?\/?/, '').replace(/^\/+|\/+$/g, '')
-  if (route === 'publish' || route === 'edit' || route === 'profile') return route
-  return 'dashboard'
-}
-
-function routeFromLocation(): AppRoute {
-  const hashRoute = normalizeRoute(window.location.hash)
-  if (hashRoute !== 'dashboard') return hashRoute
-  const path = window.location.pathname.replace(/^\/+|\/+$/g, '')
-  return normalizeRoute(path)
-}
-
-function pathForRoute(route: AppRoute) {
-  return route === 'dashboard' ? '/' : `/${route}`
-}
-
-function pushRoute(route: AppRoute) {
-  const next = pathForRoute(route)
-  if (window.location.pathname !== next || window.location.hash) window.history.pushState(null, '', next)
 }
 
 function App() {
@@ -1658,184 +1527,5 @@ function EditPanel({
     </div>
   )
 }
-
-function PreviewTabs({
-  active,
-  setActive,
-  hasProposal,
-  publish = false,
-}: {
-  active: 'files' | 'source' | 'proposal' | 'diff'
-  setActive: (tab: 'files' | 'source' | 'proposal' | 'diff') => void
-  hasProposal: boolean
-  publish?: boolean
-}) {
-  if (publish) {
-    return (
-      <div className="preview-tabs">
-        <button className="preview-tab active" type="button" onClick={() => setActive('files')}>
-          Generated files
-        </button>
-      </div>
-    )
-  }
-  return (
-    <div className="preview-tabs">
-      <button className={active === 'diff' ? 'preview-tab active' : 'preview-tab'} type="button" onClick={() => setActive('diff')}>
-        Diff
-      </button>
-      <button className={active === 'proposal' ? 'preview-tab active' : 'preview-tab'} type="button" onClick={() => setActive('proposal')} disabled={!hasProposal}>
-        Proposal
-      </button>
-      <button className={active === 'source' ? 'preview-tab active' : 'preview-tab'} type="button" onClick={() => setActive('source')}>
-        Source
-      </button>
-    </div>
-  )
-}
-
-function FilesPreview({ files, summary, form }: { files: RepoFile[]; summary: string; form: PublishForm }) {
-  const plannedFiles = useMemo(() => plannedRepoPreview(form), [form])
-  const displayFiles = files.length ? files : plannedFiles
-  const [selected, setSelected] = useState('')
-  const current = displayFiles.find((file) => file.path === selected) ?? displayFiles[0]
-  useEffect(() => {
-    if (displayFiles[0] && !displayFiles.some((file) => file.path === selected)) setSelected(displayFiles[0].path)
-  }, [displayFiles, selected])
-  return (
-    <div className="preview-body">
-      <div className="preview-summary">
-        <strong>{files.length ? summary : 'Repository preview'}</strong>
-        <p>{files.length
-          ? 'Review before publishing. Generated files must stay Markdown/Zensical source, not committed static output.'
-          : 'This is the Zensical repo shape that will be generated and pushed to GitHub.'}</p>
-      </div>
-      <div className="file-preview-layout">
-        <div className="file-list">
-          {displayFiles.map((file) => (
-            <button key={file.path} className={current?.path === file.path ? 'file-row active' : 'file-row'} onClick={() => setSelected(file.path)} type="button">
-              {file.path}
-            </button>
-          ))}
-        </div>
-        <pre className="code-view">{current?.content}</pre>
-      </div>
-    </div>
-  )
-}
-
-function plannedRepoPreview(form: PublishForm): RepoFile[] {
-  const title = form.title || 'Untitled Knowledge Base'
-  const slug = form.slug || 'knowledge-base'
-  const productionUrl = form.customDomain ? `https://${form.customDomain}/` : `https://${slug}.pages.dev/`
-  return [
-    {
-      path: 'zensical.toml',
-      content: [
-        `title = "${title.replace(/"/g, '\\"')}"`,
-        `base_url = "${productionUrl}"`,
-        'content_dir = "docs"',
-        'output_dir = "site"',
-        '',
-        '[navigation]',
-        'items = [',
-        '  { title = "Start", path = "index.md" },',
-        '  { title = "First Principles", path = "first-principles.md" },',
-        '  { title = "Assessment Method", path = "assessment-method.md" },',
-        '  { title = "Register", path = "register.md" }',
-        ']',
-      ].join('\n'),
-    },
-    {
-      path: 'docs/index.md',
-      content: [
-        `# ${title}`,
-        '',
-        form.prompt || 'Describe the knowledge base you want to publish. ProDocStore will generate Markdown source files for a Zensical book.',
-      ].join('\n'),
-    },
-    {
-      path: '.github/workflows/deploy.yml',
-      content: [
-        'name: Deploy Zensical KB',
-        'on:',
-        '  push:',
-        '    branches: [main]',
-        'jobs:',
-        '  deploy:',
-        '    runs-on: ubuntu-latest',
-        '    steps:',
-        '      - uses: actions/checkout@v4',
-        '      - uses: actions/setup-python@v5',
-        '        with:',
-        '          python-version: "3.x"',
-        '      - run: python3 -m pip install zensical && python3 -m zensical build --strict',
-        '      - uses: cloudflare/wrangler-action@v3',
-        '        with:',
-        `          command: pages deploy site --project-name=${slug}`,
-      ].join('\n'),
-    },
-    {
-      path: 'README.md',
-      content: [
-        `# ${title}`,
-        '',
-        'ProDocStore knowledge base.',
-        '',
-        '- Engine: Zensical',
-        '- Source: `docs/`',
-        '- Build output: `site/`',
-        `- Production target: ${productionUrl}`,
-      ].join('\n'),
-    },
-  ]
-}
-
-function EditPreview({
-  active,
-  source,
-  proposal,
-  diff,
-  path,
-}: {
-  active: 'files' | 'source' | 'proposal' | 'diff'
-  source: string
-  proposal: Proposal | null
-  diff: string
-  path: string
-}) {
-  const text = active === 'proposal' ? proposal?.content ?? '' : active === 'source' ? source : diff
-  return (
-    <div className="preview-body">
-      <div className="preview-summary">
-        <strong>{proposal?.summary ?? path}</strong>
-        <p>{proposal?.rationale ?? 'Load a Markdown file and ask AI for a replacement proposal.'}</p>
-      </div>
-      <pre className="code-view">{text || 'Nothing to preview yet.'}</pre>
-    </div>
-  )
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  secret,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  secret?: boolean
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={secret ? 'password' : 'text'} />
-    </label>
-  )
-}
-
 
 export default App

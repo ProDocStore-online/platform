@@ -1,0 +1,151 @@
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 10px 11px;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--subtle);
+}
+
+.field textarea {
+  min-height: 150px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.inline-choice,
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-choice {
+  margin: 4px 0 12px;
+}
+
+.choice {
+  min-height: 36px;
+  padding-inline: 12px;
+}
+
+.primary-action {
+  flex: 1 1 170px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.secondary-action {
+  flex: 1 1 150px;
+  background: var(--panel);
+}
+
+.primary-action:hover,
+.icon-action:hover {
+  background: color-mix(in srgb, var(--accent) 86%, #000000);
+}
+
+.secondary-action:hover,
+.mode:hover,
+.choice:hover,
+.preview-tab:hover,
+.file-row:hover,
+.account-pill:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-muted);
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.primary-action:disabled:hover {
+  background: var(--accent);
+}
+
+.danger-action {
+  color: var(--danger);
+}
+
+.as-link {
+  text-align: center;
+}
+
+.compact-actions {
+  margin-top: 8px;
+}
+
+.full-action {
+  width: 100%;
+}
+
+.compact-auth {
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+
+.steps {
+  margin-top: 14px;
+}
+
+.step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-muted);
+  padding: 10px;
+}
+
+.step span {
+  color: var(--muted);
+}
+
+.step.ok span,
+.step.ok strong {
+  color: var(--ok);
+}
+
+.step.busy span,
+.step.busy strong {
+  color: var(--warn);
+}
+
+.step.error span,
+.step.error strong {
+  color: var(--danger);
+}
+
+.step strong {
+  display: block;
+  font-size: 13px;
+}
+
+.step p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.live-link {
+  width: 100%;
+  margin-top: 12px;
+  color: var(--accent-2);
+}

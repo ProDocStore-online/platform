@@ -1,0 +1,380 @@
+.dashboard-grid,
+.profile-grid,
+.workspace-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-grid {
+  max-width: 720px;
+}
+
+.panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.control-panel,
+.preview-panel {
+  display: grid;
+  gap: 0;
+  align-content: start;
+}
+
+.section-block {
+  min-width: 0;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-block:last-child {
+  border-bottom: 0;
+}
+
+.section-title,
+.title-row,
+.summary-title {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.section-title {
+  margin-bottom: 14px;
+}
+
+.split-title {
+  justify-content: space-between;
+}
+
+.section-title svg,
+.summary-title svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.section-title h2,
+.summary-title strong {
+  display: block;
+  margin: 0 0 3px;
+  font-size: 16px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.section-title p,
+.summary-title small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.settings-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -2px 0 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.connection-grid,
+.metric-grid,
+.target-grid,
+.field-grid,
+.steps,
+.selected-kb,
+.profile-action-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.connection-grid,
+.metric-grid,
+.target-grid {
+  margin-bottom: 14px;
+}
+
+.connection-badge,
+.metric-grid div,
+.target-grid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-muted);
+  padding: 11px 12px;
+}
+
+.connection-badge.ready {
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+  background: var(--ok-soft);
+}
+
+.connection-badge.needs-setup,
+.connection-badge.error {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+  background: var(--danger-soft);
+}
+
+.connection-badge.checking {
+  border-color: color-mix(in srgb, var(--warn) 42%, var(--line));
+  background: var(--warn-soft);
+}
+
+.connection-badge span,
+.metric-grid span,
+.target-grid span,
+.selected-kb span,
+.field span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.connection-badge strong,
+.metric-grid strong,
+.target-grid strong,
+.selected-kb strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connection-badge p,
+.connection-detail,
+.selected-kb p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.connection-detail {
+  margin-bottom: 12px;
+}
+
+.byok-strip {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-muted);
+  padding: 11px 12px;
+}
+
+.byok-strip > div {
+  min-width: 0;
+}
+
+.byok-strip span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.byok-strip strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.byok-strip p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.metric-grid strong {
+  font-size: 19px;
+}
+
+.target-grid strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-size: 13px;
+}
+
+.target-domain.active {
+  border-color: color-mix(in srgb, var(--accent-2) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent-2) 11%, var(--panel));
+}
+
+.access-box {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 46%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warn) 9%, var(--panel));
+  padding: 12px;
+}
+
+.access-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.access-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.access-box .field {
+  margin-bottom: 0;
+}
+
+.warning-note {
+  color: var(--danger) !important;
+}
+
+.icon-action {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.kb-shelf {
+  padding-bottom: 14px;
+}
+
+.kb-list {
+  display: grid;
+  gap: 10px;
+}
+
+.kb-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.kb-card.active {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.kb-card-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kb-card-title,
+.kb-card-meta,
+.kb-card-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-card-title {
+  font-weight: 760;
+}
+
+.kb-card-meta,
+.kb-card-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kb-card-links {
+  display: grid;
+  border-left: 1px solid var(--line);
+}
+
+.kb-card-links a {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  min-height: 38px;
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+.kb-card-links a + a {
+  border-top: 1px solid var(--line);
+}
+
+.profile-card,
+.pds-profile-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.profile-card h2,
+.pds-profile-card h2 {
+  margin: 0 0 3px;
+  font-size: 18px;
+  font-weight: 760;
+}
+
+.profile-card p,
+.profile-card small,
+.pds-profile-card p,
+.pds-profile-card small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.avatar-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.profile-avatar {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+}
