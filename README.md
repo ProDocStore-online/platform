@@ -1,19 +1,35 @@
 # ProDocStore Platform
 
-ProDocStore is the paid, private knowledge-base publishing platform for customer and staff documentation. It uses the same Zensical-only publishing contract as FreeDocStore, but the product boundary is different: private repos, secure access, customer workspaces, custom domains, and account-level BYOK.
+ProDocStore is the paid, private knowledge-base platform for customer and staff documentation:
+**the private knowledge base your AI agents read and maintain** — MCP-native, human-reviewed.
 
-Canonical GitHub organization: <https://github.com/ProDocStore-online>. The platform repo, generated customer KB repos, reusable workflows, and shared Actions configuration belong to that org.
+> **Architecture: platform-native, NOT GitHub-backed.** ProDocStore's source of truth is
+> **D1 + R2**, not GitHub. The earlier GitHub-backed framing in this README (private repos per
+> KB in the ProDocStore org) is **superseded** — see [`STRATEGY.md`](./STRATEGY.md) for the full
+> rationale (data ownership, buyer fit, family precedent with PWS). GitHub becomes an *optional*
+> connect/import feature, not the foundation. The sections below are being updated as the
+> platform-native build lands; where they still describe "one GitHub repo per KB", read D1.
 
-## Product Rule
+## Build status (2026-07-13)
 
-Knowledge bases are GitHub-backed Zensical books.
+Platform-native foundation is live on `prodocstore-api`:
 
-- One GitHub repo per KB.
-- Markdown source lives in `docs/`.
-- Zensical config lives in `zensical.toml`.
-- Generated static output is build output, not source.
-- Manual editing happens in GitHub.
-- The console and extension are AI-first: prompt, review generated Markdown/diffs, then publish.
+- **D1 store** (`prodocstore`): orgs, memberships (RBAC), knowledge_bases, pages, proposals
+  (the review gate), ai_usage (quota metering). Schema in `workers/api/migrations/`.
+- **API** (`workers/api/src/routes/kb.ts`): org / KB / page / proposal endpoints, role-gated
+  (owner > admin > editor > reviewer > viewer).
+- **Access-controlled publishing** (`workers/api/src/routes/publish.ts`): private KBs render as
+  HTML at `/kb/:kbId` behind org membership.
+
+Next: console wired to the D1 proposal/approve flow → org-scoped MCP → Stripe per-seat billing +
+AI-quota metering. See `STRATEGY.md` build order.
+
+## Product rule
+
+- Knowledge lives in the platform (D1 + R2), scoped to an org, behind access control.
+- Changes go through a **proposal → review → approve** flow (AI or human proposes, a reviewer
+  approves; approval writes the page). Platform-native — no GitHub PR required.
+- The console and MCP are AI-first: prompt, review the diff, approve.
 
 ## Scope
 
@@ -38,17 +54,12 @@ brand/                Brand assets
 .github/workflows/    Deploy, release, lint, and test workflows
 ```
 
-## Published Knowledge Bases
+## Knowledge bases (platform-native)
 
-Each customer knowledge base is its own GitHub repository. Local checkouts follow the other store convention: published KB repos sit beside `platform`, not inside it.
-
-```text
-~/dev/stores/pdocs/
-  platform/           ProDocStore platform monorepo
-  <kb-slug>/          Published customer KB repo
-```
-
-The platform registry records repo, Zensical source layout, Cloudflare Pages project, production URL, custom domains, and visibility metadata. ProDocStore starts with an empty registry; customer KBs are added as they are created.
+Each KB is a row in D1 scoped to an org, with its pages stored in D1 (markdown inline for the
+MVP; large assets move to R2). There is **no GitHub repo per KB** — access control, versioning,
+and the review flow are owned by the platform, which is exactly what ProDocStore sells. KBs render
+behind org-membership auth at `/kb/:kbId`, and later at `<org>.prodocstore.online` / custom domains.
 
 ## Console
 
