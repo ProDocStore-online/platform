@@ -5,6 +5,7 @@ import sodium from "libsodium-wrappers-sumo";
 
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
+import { registerPublishRoutes } from "./routes/publish";
 
 interface GitHubUser {
   id: number;
@@ -362,6 +363,8 @@ app.all("/api/proxy", async (c) => {
 
 // Platform-native private KB store (D1): orgs, RBAC, KBs, pages, proposals.
 registerKbRoutes(app);
+// Access-controlled rendering of private KBs (members only).
+registerPublishRoutes(app);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

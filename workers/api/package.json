@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "hono": "^4.12.27",
-    "libsodium-wrappers-sumo": "^0.8.4"
+    "libsodium-wrappers-sumo": "^0.8.4",
+    "marked": "^18.0.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250520.0",
