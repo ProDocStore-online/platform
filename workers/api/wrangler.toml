@@ -32,3 +32,11 @@ GITHUB_ORG = "ProDocStore-online"
 [[kv_namespaces]]
 binding = "PDS_API_KV"
 id = "5872e9e5307d450985d985cb4a627a78"
+
+# Platform-native private KB store (orgs, RBAC, KBs, pages, proposals, ai_usage).
+# Schema in migrations/. Apply with: wrangler d1 migrations apply prodocstore --remote
+[[d1_databases]]
+binding = "DB"
+database_name = "prodocstore"
+database_id = "b6e9749a-0355-4ac3-966d-2c9dcd60d5fa"
+migrations_dir = "migrations"

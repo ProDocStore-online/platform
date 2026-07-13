@@ -3,23 +3,8 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import sodium from "libsodium-wrappers-sumo";
 
-interface Env {
-  PDS_API_KV: KVNamespace;
-  EDITOR_BASE_URL: string;
-  PUBLIC_BASE_URL: string;
-  COOKIE_DOMAIN?: string;
-  GITHUB_ORG: string;
-  GITHUB_CLIENT_ID?: string;
-  GITHUB_CLIENT_SECRET?: string;
-  GITHUB_TOKEN?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  PDS_KEY_ENCRYPTION_KEY?: string;
-  CLOUDFLARE_API_TOKEN?: string;
-  CLOUDFLARE_ACCOUNT_ID?: string;
-}
-
-type AuthProvider = "github" | "google";
+import { type Env, type Session, type Variables, type AuthProvider } from "./types";
+import { registerKbRoutes } from "./routes/kb";
 
 interface GitHubUser {
   id: number;
@@ -37,22 +22,6 @@ interface GoogleUser {
   profile?: string;
 }
 
-interface Session {
-  id: string;
-  user: {
-    id: string;
-    provider: AuthProvider;
-    login: string;
-    name: string;
-    avatarUrl: string;
-    githubUrl: string;
-    email?: string;
-  };
-  githubAccessToken?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface StoredSecret {
   v: number;
   alg: "AES-GCM";
@@ -60,10 +29,6 @@ interface StoredSecret {
   ciphertext: string;
   label: string;
 }
-
-type Variables = {
-  session: Session | null;
-};
 
 const SESSION_COOKIE = "pds_session";
 const STATE_PREFIX = "oauth_state:";
@@ -394,6 +359,9 @@ app.all("/api/proxy", async (c) => {
     headers: responseHeaders,
   });
 });
+
+// Platform-native private KB store (D1): orgs, RBAC, KBs, pages, proposals.
+registerKbRoutes(app);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
