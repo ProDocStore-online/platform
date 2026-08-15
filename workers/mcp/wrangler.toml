@@ -14,10 +14,24 @@ REGISTRY_URL = "https://prodocstore.online/registry.json"
 GITHUB_ORG = "ProDocStore-online"
 PLATFORM_REPO = "platform"
 DEFAULT_DOMAIN = "pages.dev"
-# GitHub OAuth app client id. Callback URL:
-# https://mcp.prodocstore.online/callback
-# Secret:
-# GITHUB_CLIENT_SECRET
+
+# Set MCP_READ_ONLY = "1" to refuse every mutating tool without a code change.
+# Left unset in production.
+
+# Secrets (wrangler secret put), NOT vars:
+#   GITHUB_CLIENT_ID
+#   GITHUB_CLIENT_SECRET
+#
+# These belong to ProDocStore's OWN GitHub OAuth app, registered under the
+# ProDocStore-online org, callback https://mcp.prodocstore.online/callback.
+# It is a different app from the console's (that one is consumed by
+# prodocstore-api with callback https://api.prodocstore.online/auth/github/callback),
+# and unrelated to the dormant FreeDocStore MCP app. Do not point this worker at
+# either of them.
+#
+# Source of truth for the values is SOPS in ~/dev/ops:
+#   sops -d --extract '["pdocs"]["MCP_GITHUB_CLIENT_ID"]'     secrets.enc.yaml
+#   sops -d --extract '["pdocs"]["MCP_GITHUB_CLIENT_SECRET"]' secrets.enc.yaml
 
 [durable_objects]
 bindings = [

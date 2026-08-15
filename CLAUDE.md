@@ -47,6 +47,19 @@ Manual edits happen in GitHub.
 - Cloudflare Pages/Workers/KV are independent from FreeDocStore.
 - Private repo deploy secrets need repo-level secrets unless the GitHub org has a paid plan.
 
+## Delivery mode
+
+**Straight to `main`.** Commit and push directly. Do not open a branch or a pull
+request for work in this repo.
+
+## MCP write safety
+
+Mutating MCP tools go through `workers/mcp/src/safety.ts`, vendored from the
+PAGS/PAS convention: `requirePermission -> dry_run -> confirm -> write`, with
+every outcome audited and secrets redacted. The `write` scope is granted
+fail-closed — a client that does not ask for it gets read-only access. New write
+tools follow the same gates; see `workers/mcp/README.md`.
+
 ## Commands
 
 ```bash
@@ -54,6 +67,7 @@ pnpm test
 pnpm --dir apps/editor build
 npm --prefix workers/api run typecheck
 npm --prefix workers/mcp run typecheck
+npm --prefix workers/mcp run test
 
 cd extension
 npm run build

@@ -11,6 +11,16 @@ import {
   readRepoFile,
   type KnowledgeBase,
 } from "./github.js";
+import {
+  audit,
+  dryRun,
+  jsonTxt,
+  listAuditEvents,
+  requireConfirmation,
+  requirePermission,
+  txt,
+  type SafetyContext,
+} from "./safety.js";
 
 interface Env {
   PUBLIC_BASE_URL: string;
@@ -23,9 +33,15 @@ interface Env {
   PDS_API_KV?: KVNamespace;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  /** Set to "1" to refuse every mutating tool without redeploying code. */
+  MCP_READ_ONLY?: string;
 }
 
-const txt = (text: string) => ({ content: [{ type: "text" as const, text }] });
+const DRAFTS_KEY = "pds:kbs:v1";
+const ACTIVE_KB_KEY = "pds:active-kb:v1";
+
+/** Upper bound on drafts retained per user, newest first. */
+const MAX_DRAFTS = 200;
 
 interface McpProps extends Record<string, unknown> {
   userId?: string;
@@ -119,11 +135,21 @@ function renderDraft(draft: WorkspaceDraft): string {
   ].join("\n");
 }
 
-function requireWorkspaceWrite(env: Env, props: McpProps): string {
-  if (!props?.userId) throw new Error("Not authenticated. Connect with GitHub OAuth first.");
-  if (!props.scopes?.includes("write")) throw new Error("This MCP token does not include the write scope.");
-  if (!env.PDS_API_KV) throw new Error("PDS_API_KV is not bound to the MCP worker.");
-  return props.userId;
+/**
+ * Persist a new draft and make it the active KB.
+ *
+ * The list is re-read immediately before the put so a draft created since the
+ * caller's own read is not clobbered. KV offers no compare-and-set, so this
+ * narrows the lost-update window rather than closing it; the console is a
+ * single writer per user in practice, and the audit log records every write.
+ */
+async function appendDraft(kv: KVNamespace, userId: string, draft: WorkspaceDraft): Promise<number> {
+  const current = await kv.get<WorkspaceDraft[]>(userKvKey(userId, DRAFTS_KEY), "json");
+  const existing = Array.isArray(current) ? current.filter((entry) => entry.id !== draft.id) : [];
+  const next = [draft, ...existing].slice(0, MAX_DRAFTS);
+  await kv.put(userKvKey(userId, DRAFTS_KEY), JSON.stringify(next));
+  await kv.put(userKvKey(userId, ACTIVE_KB_KEY), JSON.stringify(draft.id));
+  return next.length;
 }
 
 function clonePublishSteps() {
@@ -298,6 +324,16 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
 
   declare props: McpProps;
 
+  /** Everything the safety gates need about the current caller. */
+  private safety(): SafetyContext {
+    return {
+      auditKv: this.env.OAUTH_KV,
+      subject: this.props?.userId,
+      scopes: this.props?.scopes ?? null,
+      readOnly: this.env.MCP_READ_ONLY === "1",
+    };
+  }
+
   async init() {
     this.server.tool(
       "whoami",
@@ -323,8 +359,8 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
         if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
         const [settings, drafts, activeId] = await Promise.all([
           readWorkspace<Record<string, unknown>>(this.env, this.props.userId, "pds:config:v1"),
-          readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "pds:kbs:v1"),
-          readWorkspace<string>(this.env, this.props.userId, "pds:active-kb:v1"),
+          readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, DRAFTS_KEY),
+          readWorkspace<string>(this.env, this.props.userId, ACTIVE_KB_KEY),
         ]);
         const list = Array.isArray(drafts) ? drafts : [];
         const active = list.find((draft) => draft.id === activeId) ?? list[0];
@@ -366,10 +402,23 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
       async () => {
         if (!this.props?.userId) return txt("Not authenticated. Connect with GitHub OAuth first.");
         if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
-        const drafts = await readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, "pds:kbs:v1");
+        const drafts = await readWorkspace<WorkspaceDraft[]>(this.env, this.props.userId, DRAFTS_KEY);
         const list = Array.isArray(drafts) ? drafts : [];
         if (!list.length) return txt("No KB drafts saved in this ProDocStore workspace.");
         return txt(`${list.length} workspace draft(s):\n\n${list.map(renderDraft).join("\n\n---\n\n")}`);
+      },
+    );
+
+    this.server.tool(
+      "mcp_audit_log",
+      "Read this account's ProDocStore MCP audit trail: every write attempt, dry run, and refusal.",
+      { limit: z.number().int().min(1).max(200).optional().describe("How many of the most recent events to return, default 50") },
+      async ({ limit }) => {
+        const ctx = this.safety();
+        if (!ctx.subject) return txt("Not authenticated. Connect with GitHub OAuth first.");
+        const events = await listAuditEvents(ctx, limit ?? 50);
+        if (!events.length) return txt("No MCP audit events recorded for this account.");
+        return jsonTxt({ count: events.length, events });
       },
     );
 
@@ -390,10 +439,19 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
         support_channel: z.string().optional().describe("Support intake channel for KB issues"),
         escalation_path: z.string().optional().describe("Escalation route for sensitive or urgent KB issues"),
         visibility: z.enum(["public", "private"]).optional().describe("Repo visibility to use when published"),
+        dry_run: z.boolean().optional().describe("Preview the draft that would be created. Writes nothing."),
+        confirm: z.string().optional().describe('Required once the workspace already holds drafts: pass confirm="create_workspace_draft". Creating a draft makes it the active KB in the console.'),
       },
-      async ({ title, prompt, slug, custom_domain, company_name, department, audience, knowledge_owner, review_cadence, compliance_mode, support_channel, escalation_path, visibility }) => {
-        const userId = requireWorkspaceWrite(this.env, this.props);
-        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "pds:kbs:v1");
+      async ({ title, prompt, slug, custom_domain, company_name, department, audience, knowledge_owner, review_cadence, compliance_mode, support_channel, escalation_path, visibility, dry_run, confirm }) => {
+        const ctx = this.safety();
+        const input = { title, slug, custom_domain, visibility };
+
+        const denied = await requirePermission(ctx, "write", "create_workspace_draft", input);
+        if (denied) return denied;
+        if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
+        const userId = ctx.subject!; // guaranteed by requirePermission
+
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, DRAFTS_KEY);
         const drafts = Array.isArray(current) ? current : [];
         const draft = makeWorkspaceDraft({
           title,
@@ -411,8 +469,39 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
           escalationPath: escalation_path ?? "",
           visibility: visibility ?? "public",
         });
-        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
-        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:active-kb:v1"), JSON.stringify(draft.id));
+        const replacesActiveKb = drafts.length > 0;
+
+        if (dry_run) {
+          return dryRun(ctx, "create_workspace_draft", "create_draft", input, {
+            draft: { title: draft.title, slug: draft.slug, owner: draft.owner, visibility: draft.visibility },
+            files: draft.files?.map((file) => file.path) ?? [],
+            becomesActiveKnowledgeBase: true,
+            replacesActiveKnowledgeBase: replacesActiveKb,
+            existingDraftCount: drafts.length,
+            confirmRequired: replacesActiveKb ? "create_workspace_draft" : null,
+            publishesToGitHub: false,
+          });
+        }
+
+        if (replacesActiveKb) {
+          const unconfirmed = await requireConfirmation(
+            ctx,
+            "create_workspace_draft",
+            confirm,
+            "create_workspace_draft",
+            `This workspace already holds ${drafts.length} draft(s); the new draft becomes the active KB in the console.`,
+            input,
+          );
+          if (unconfirmed) return unconfirmed;
+        }
+
+        const draftCount = await appendDraft(this.env.PDS_API_KV, userId, draft);
+        await audit(ctx, {
+          tool: "create_workspace_draft",
+          action: "created",
+          input,
+          result: { id: draft.id, slug: draft.slug, draftCount },
+        });
         return txt(`Created ProDocStore workspace draft via MCP.\n\n${renderDraft(draft)}`);
       },
     );
@@ -420,10 +509,18 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
     this.server.tool(
       "create_sample_knowledge_base",
       "Create a small sample ProDocStore KB draft through MCP for smoke testing.",
-      {},
-      async () => {
-        const userId = requireWorkspaceWrite(this.env, this.props);
-        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, "pds:kbs:v1");
+      {
+        dry_run: z.boolean().optional().describe("Preview the sample draft that would be created. Writes nothing."),
+        confirm: z.string().optional().describe('Required once the workspace already holds drafts: pass confirm="create_sample_knowledge_base".'),
+      },
+      async ({ dry_run, confirm }) => {
+        const ctx = this.safety();
+        const denied = await requirePermission(ctx, "write", "create_sample_knowledge_base");
+        if (denied) return denied;
+        if (!this.env.PDS_API_KV) return txt("PDS_API_KV is not bound to the MCP worker.");
+        const userId = ctx.subject!; // guaranteed by requirePermission
+
+        const current = await readWorkspace<WorkspaceDraft[]>(this.env, userId, DRAFTS_KEY);
         const drafts = Array.isArray(current) ? current : [];
         const title = "MCP Sample Knowledge Base";
         const draft = makeWorkspaceDraft({
@@ -440,8 +537,37 @@ export class ProDocStoreMcp extends McpAgent<Env, unknown, McpProps> {
           supportChannel: "#kb-support",
           escalationPath: "Operations manager, security, legal",
         });
-        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:kbs:v1"), JSON.stringify([draft, ...drafts]));
-        await this.env.PDS_API_KV!.put(userKvKey(userId, "pds:active-kb:v1"), JSON.stringify(draft.id));
+        const replacesActiveKb = drafts.length > 0;
+
+        if (dry_run) {
+          return dryRun(ctx, "create_sample_knowledge_base", "create_draft", {}, {
+            draft: { title: draft.title, slug: draft.slug, owner: draft.owner },
+            files: draft.files?.map((file) => file.path) ?? [],
+            becomesActiveKnowledgeBase: true,
+            replacesActiveKnowledgeBase: replacesActiveKb,
+            existingDraftCount: drafts.length,
+            confirmRequired: replacesActiveKb ? "create_sample_knowledge_base" : null,
+            publishesToGitHub: false,
+          });
+        }
+
+        if (replacesActiveKb) {
+          const unconfirmed = await requireConfirmation(
+            ctx,
+            "create_sample_knowledge_base",
+            confirm,
+            "create_sample_knowledge_base",
+            `This workspace already holds ${drafts.length} draft(s); the sample draft becomes the active KB in the console.`,
+          );
+          if (unconfirmed) return unconfirmed;
+        }
+
+        const draftCount = await appendDraft(this.env.PDS_API_KV, userId, draft);
+        await audit(ctx, {
+          tool: "create_sample_knowledge_base",
+          action: "created",
+          result: { id: draft.id, slug: draft.slug, draftCount },
+        });
         return txt(`Created sample KB draft via MCP.\n\n${renderDraft(draft)}`);
       },
     );
@@ -679,7 +805,9 @@ export default {
           "- Cloudflare Pages project per KB",
           "- custom domains per KB",
           "",
-          "Tools: whoami, workspace_summary, list_workspace_drafts, create_workspace_draft, create_sample_knowledge_base, platform_guide, list_knowledge_bases, knowledge_base_info, check_zensical_repo, list_files, read_file, deploy_status, publish_plan",
+          "Tools: whoami, workspace_summary, list_workspace_drafts, mcp_audit_log, create_workspace_draft, create_sample_knowledge_base, platform_guide, list_knowledge_bases, knowledge_base_info, check_zensical_repo, list_files, read_file, deploy_status, publish_plan",
+          "",
+          "Write tools require the \"write\" scope, take dry_run to preview, and are audited. See mcp_audit_log.",
           "",
           `Auth: OAuth 2.1 via GitHub sign-in when connected through mcp-remote or Claude. Configured: ${env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET ? "yes" : "no"}.`,
         ].join("\n"),

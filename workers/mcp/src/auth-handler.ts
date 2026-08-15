@@ -104,11 +104,21 @@ app.get("/callback", async (c) => {
   return c.redirect(redirectTo, 302);
 });
 
-function parseScopes(value: string | string[] | null | undefined): string[] {
-  if (!value) return ["read", "write"];
-  const parts = Array.isArray(value) ? value : value.split(/[,\s]+/);
-  const known = parts.filter((part) => part === "read" || part === "write");
-  return known.length ? Array.from(new Set(known)) : ["read", "write"];
+/**
+ * Grant scopes fail-closed: `write` is granted only when the client explicitly
+ * asks for it. A client that requests no scope, or only scopes we do not
+ * recognise, gets read-only access.
+ *
+ * This used to default to ["read", "write"], which handed every token the very
+ * scope requirePermission() in safety.ts checks before touching PDS_API_KV — so
+ * the gate could never actually refuse anyone. `read` is always included so a
+ * granted token is never scope-less.
+ */
+export function parseScopes(value: string | string[] | null | undefined): string[] {
+  const parts = !value ? [] : Array.isArray(value) ? value : value.split(/[,\s]+/);
+  const scopes = ["read"];
+  if (parts.includes("write")) scopes.push("write");
+  return scopes;
 }
 
 export { app as AuthHandler };
