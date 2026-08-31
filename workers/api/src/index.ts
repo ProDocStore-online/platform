@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
+import sealedbox from "tweetnacl-sealedbox-js";
 
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
@@ -690,12 +691,9 @@ async function cloudflareProbe(url: string, token: string): Promise<{ ok: boolea
 }
 
 async function encryptForGitHub(publicKey: string, value: string): Promise<string> {
-  const sodium = (await import("libsodium-wrappers-sumo")).default;
-  await sodium.ready;
-  const keyBytes = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
-  const valueBytes = sodium.from_string(value);
-  const encryptedBytes = sodium.crypto_box_seal(valueBytes, keyBytes);
-  return sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
+  const keyBytes = base64ToBytes(publicKey);
+  const valueBytes = new TextEncoder().encode(value);
+  return bytesToBase64(sealedbox.seal(valueBytes, keyBytes));
 }
 
 function githubTokens(env: Env, session: Session): GitHubToken[] {
