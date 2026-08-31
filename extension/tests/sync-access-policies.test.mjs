@@ -99,6 +99,18 @@ function readCurlLog(logPath) {
     .map((l) => l.split("\t", 2));
 }
 
+function withOtpIdentityProvider(dispatchSource) {
+  return `
+    if (url.endsWith("/identity_providers") && method === "GET")
+      emit('{"success": true, "result": [{"id":"otp1","type":"onetimepin","name":"One-time PIN login"}]}');
+    if (url.endsWith("/apps/app123") && method === "GET")
+      emit('{"success": true, "result": {"id":"app123","name":"KB","type":"self_hosted","domain":"kb.pages.dev","self_hosted_domains":["kb.pages.dev"],"session_duration":"24h"}}');
+    if (url.endsWith("/apps/app123") && method === "PUT")
+      emit('{"success": true, "result": {"id":"app123","allowed_idps":["otp1"]}}');
+    ${dispatchSource}
+  `;
+}
+
 // ── Sanity ──────────────────────────────────────────────────────────
 
 test("script exists and is readable", () => {
@@ -126,12 +138,12 @@ test("requires CLOUDFLARE_API_TOKEN", () => {
 test('{"success": true, "result": null} is handled without jq iteration crash', () => {
   const tmp = mkdtempBare("sync-access-");
   try {
-    const dispatch = `
+    const dispatch = withOtpIdentityProvider(`
       if (url.includes("/policies") && method === "GET")
         emit('{"success": true, "result": null}');
       if (url.includes("/policies") && method === "POST")
         emit('{"success": true, "result": {"id": "new1"}}');
-    `;
+    `);
     const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const r = runScript(BASE_ENV, mockPath);
     assert.equal(
@@ -208,7 +220,7 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
     // Two reusable policies that refuse deletion. Bypass -> prec 3; Allow -> prec 4.
-    const dispatch = `
+    const dispatch = withOtpIdentityProvider(`
       if (url.includes("/policies") && method === "GET")
         emit(JSON.stringify({
           success: true,
@@ -221,7 +233,7 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
         emit('{"success": false, "errors":[{"message":"reusable"}]}');
       if (url.includes("/policies") && method === "POST")
         emit('{"success": true, "result": {"id": "new"}}');
-    `;
+    `);
     const { mockPath } = makeMockCurl(tmp.root, dispatch);
     const env = { ...BASE_ENV, OFFICE_CIDRS: "10.0.0.0/24" };
     const r = runScript(env, mockPath);
@@ -242,7 +254,7 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
 test("delete failure surfaces as ::warning:: but doesn't fail the script", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
-    const dispatch = `
+    const dispatch = withOtpIdentityProvider(`
       if (url.includes("/policies") && method === "GET")
         emit(JSON.stringify({
           success: true,
@@ -252,7 +264,7 @@ test("delete failure surfaces as ::warning:: but doesn't fail the script", () =>
         emit('{"success": false, "errors":[{"message":"cannot delete"}]}');
       if (url.includes("/policies") && method === "POST")
         emit('{"success": true, "result": {"id": "new"}}');
-    `;
+    `);
     const { mockPath } = makeMockCurl(tmp.root, dispatch);
     const r = runScript(BASE_ENV, mockPath);
     assert.equal(
@@ -272,12 +284,12 @@ test("delete failure surfaces as ::warning:: but doesn't fail the script", () =>
 test("empty policy list + no CIDRs -> single allow POST", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
-    const dispatch = `
+    const dispatch = withOtpIdentityProvider(`
       if (url.includes("/policies") && method === "GET")
         emit('{"success": true, "result": []}');
       if (url.includes("/policies") && method === "POST")
         emit('{"success": true, "result": {"id": "new"}}');
-    `;
+    `);
     const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const r = runScript(BASE_ENV, mockPath);
     assert.equal(
@@ -291,6 +303,25 @@ test("empty policy list + no CIDRs -> single allow POST", () => {
     assert.equal(posts.length, 1);
     // Allow policy takes precedence 1 when it's the only managed policy.
     assert.match(r.stdout, /at precedence 1/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("plain email policy fails clearly when token cannot list identity providers", () => {
+  const tmp = mkdtempBare("sync-access-");
+  try {
+    const dispatch = `
+      if (url.includes("/policies") && method === "GET")
+        emit('{"success": true, "result": []}');
+      if (url.endsWith("/identity_providers") && method === "GET")
+        emit('{"success": false, "errors":[{"code":1010,"message":"auth.forbidden"}]}');
+    `;
+    const { mockPath } = makeMockCurl(tmp.root, dispatch);
+    const r = runScript(BASE_ENV, mockPath);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout + r.stderr, /identity providers/);
+    assert.match(r.stdout + r.stderr, /auth\.forbidden/);
   } finally {
     tmp.cleanup();
   }
