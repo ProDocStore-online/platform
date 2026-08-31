@@ -73,6 +73,8 @@ export function createKnowledgeBase(form: PublishForm): KnowledgeBaseDraft {
   return {
     ...form,
     customDomain: normalizeDomain(form.customDomain),
+    accessEmailDomain: normalizeDomain(form.accessEmailDomain),
+    accessClientDomain: normalizeDomain(form.accessClientDomain),
     id: crypto.randomUUID(),
     files: [],
     liveUrl: '',

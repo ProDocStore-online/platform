@@ -170,6 +170,23 @@ export function normalizeDomain(value: string) {
     .replace(/\.$/, '')
 }
 
+export function normalizeDomainInput(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+}
+
+export function normalizePublishFormDomains(form: PublishForm): PublishForm {
+  return {
+    ...form,
+    customDomain: normalizeDomain(form.customDomain),
+    accessEmailDomain: normalizeDomain(form.accessEmailDomain),
+    accessClientDomain: normalizeDomain(form.accessClientDomain),
+  }
+}
+
 export function githubEditUrl(form: EditForm) {
   const [owner, repo] = form.repo.split('/')
   const path = form.path.split('/').map(encodeURIComponent).join('/')

@@ -32,7 +32,8 @@ import {
   liveTargetFor,
   markCurrentError,
   messageOf,
-  normalizeDomain,
+  normalizeDomainInput,
+  normalizePublishFormDomains,
   parseStoredJson,
   proxyTarget,
   readGitHubFile,
@@ -369,12 +370,13 @@ function EditorApp() {
   async function generateFiles() {
     if (!activeKb) return
     const kbId = activeKb.id
-    const form = toPublishForm(activeKb)
+    const form = normalizePublishFormDomains(toPublishForm(activeKb))
     setBusy(true)
     setStatus('Generating Zensical KB files')
     setKbSteps(kbId, resetSteps(initialSteps, 'plan', 'busy'))
     setKbPatch(kbId, { lastStatus: 'Generating files' })
     try {
+      setKbPatch(kbId, form)
       validatePublishForm(form)
       validatePlatformAccess(user)
       validateAi(settings)
@@ -399,11 +401,12 @@ function EditorApp() {
   async function publishToGitHub() {
     if (!activeKb) return
     const kbId = activeKb.id
-    const form = toPublishForm(activeKb)
+    const form = normalizePublishFormDomains(toPublishForm(activeKb))
     setBusy(true)
     setStatus('Publishing KB repo')
     setKbPatch(kbId, { lastStatus: 'Publishing' })
     try {
+      setKbPatch(kbId, form)
       let readyFiles = activeKb.files
       if (!readyFiles.length) {
         validatePublishForm(form)
@@ -1382,7 +1385,7 @@ function PublishPanel({
         <Field label="Title" value={form.title} onChange={(v) => update('title', v)} />
         <Field label="Slug / Pages project" value={form.slug} onChange={(v) => update('slug', slugify(v))} />
         <Field label="GitHub owner" value={form.owner} onChange={(v) => update('owner', v)} />
-        <Field label="Custom domain" value={form.customDomain} onChange={(v) => update('customDomain', normalizeDomain(v))} placeholder="docs.example.com" />
+        <Field label="Custom domain" value={form.customDomain} onChange={(v) => update('customDomain', normalizeDomainInput(v))} placeholder="docs.example.com" />
       </div>
       <div className="target-grid">
         <div>
@@ -1429,9 +1432,9 @@ function PublishPanel({
             <p>Private KBs are closed by default. Add allow rules here; ProDocStore protects the Pages URL before deployment and rolls back if it is public.</p>
           </div>
           <div className="field-grid two">
-            <Field label="Staff email domain" value={form.accessEmailDomain} onChange={(v) => update('accessEmailDomain', normalizeDomain(v))} placeholder="company.com" />
+            <Field label="Staff email domain" value={form.accessEmailDomain} onChange={(v) => update('accessEmailDomain', normalizeDomainInput(v))} placeholder="company.com" />
             <Field label="Allowed emails" value={form.accessAllowedEmails} onChange={(v) => update('accessAllowedEmails', v)} placeholder="admin@company.com, ops@client.com" />
-            <Field label="Client email domain" value={form.accessClientDomain} onChange={(v) => update('accessClientDomain', normalizeDomain(v))} placeholder="client.com" />
+            <Field label="Client email domain" value={form.accessClientDomain} onChange={(v) => update('accessClientDomain', normalizeDomainInput(v))} placeholder="client.com" />
             <Field label="Office CIDRs" value={form.accessOfficeCidrs} onChange={(v) => update('accessOfficeCidrs', v)} placeholder="203.0.113.0/24" />
           </div>
           <label className="field access-rules-field">
