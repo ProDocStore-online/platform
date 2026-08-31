@@ -308,7 +308,7 @@ concurrency:
 
 jobs:
   deploy:
-    uses: ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@main
+    uses: ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@publisher-v1
     with:
       project-name: ${yamlString(project)}
       public: ${form.visibility === 'public'}

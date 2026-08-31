@@ -87,7 +87,7 @@ The Worker/R2 option avoids one Pages project per KB and removes the 100 Pages p
 Flow:
 
 1. Generated repo contains `.github/workflows/deploy.yml`.
-2. Workflow calls `ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@main`.
+2. Workflow calls `ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@publisher-v1`.
 3. Customer stores Cloudflare secrets in their repo or org.
 4. Reusable publisher builds Zensical, manages Access, deploys to Pages, and verifies the result.
 
@@ -236,7 +236,7 @@ Started:
 
 Still needed before this is production-complete:
 
-- Tag and pin the reusable publisher as `@v1` instead of relying on `@main`.
+- Keep the reusable publisher pinned through a stable release tag such as `publisher-v1` instead of relying on `@main`.
 - Add generated-workflow fixture tests for public/private/custom-domain/raw-Access cases.
 - Port the fuller post-deploy verifier and rollback behavior from the GlassDocs publisher.
 - Move publish orchestration from the browser into the API Worker once the current dirty API work is isolated.
