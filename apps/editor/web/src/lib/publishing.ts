@@ -53,6 +53,10 @@ export async function generateKbFiles(settings: Settings, form: PublishForm): Pr
   return ensureFallbackFiles(withRequired, form, workflow)
 }
 
+export function buildStarterKbFiles(form: PublishForm): RepoFile[] {
+  return ensureFallbackFiles([], form, deployWorkflow(form))
+}
+
 export async function generateEditProposal(settings: Settings, form: EditForm, current: string): Promise<Proposal> {
   const system = [
     'You are an AI-first Markdown knowledge-base editor.',
@@ -121,7 +125,10 @@ export function validateKbFiles(files: RepoFile[]) {
   const failures = [
     ['zensical.toml', !paths.has('zensical.toml')],
     ['docs/index.md', !paths.has('docs/index.md')],
+    ['docs/first-principles.md', !paths.has('docs/first-principles.md')],
+    ['docs/assessment-method.md', !paths.has('docs/assessment-method.md')],
     ['Markdown under docs/', !files.some((file) => file.path.startsWith('docs/') && file.path.endsWith('.md'))],
+    ['docs/register.md', !paths.has('docs/register.md')],
     ['no generated site output', files.some((file) => file.path.startsWith('site/') || file.path.endsWith('.html'))],
   ].filter(([, failed]) => failed)
   if (failures.length) throw new Error(`Generated files failed Zensical validation: ${failures.map(([name]) => name).join(', ')}`)
@@ -493,9 +500,12 @@ function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: str
   if (!next.some((file) => file.path === 'docs/index.md')) {
     next.push({ path: 'docs/index.md', content: indexDocFor(form) })
   }
+  if (!next.some((file) => file.path === 'docs/first-principles.md')) next.push({ path: 'docs/first-principles.md', content: firstPrinciplesDocFor(form) })
+  if (!next.some((file) => file.path === 'docs/assessment-method.md')) next.push({ path: 'docs/assessment-method.md', content: assessmentMethodDocFor(form) })
   if (!next.some((file) => file.path === 'docs/governance.md')) next.push({ path: 'docs/governance.md', content: governanceDocFor(form) })
   if (!next.some((file) => file.path === 'docs/operations.md')) next.push({ path: 'docs/operations.md', content: operationsDocFor(form) })
   if (!next.some((file) => file.path === 'docs/support-and-escalation.md')) next.push({ path: 'docs/support-and-escalation.md', content: supportDocFor(form) })
+  if (!next.some((file) => file.path === 'docs/register.md')) next.push({ path: 'docs/register.md', content: registerDocFor(form) })
   if (!next.some((file) => file.path === 'docs/access-policy.md')) next.push({ path: 'docs/access-policy.md', content: accessPolicyDocFor(form) })
   return next.sort((a, b) => a.path.localeCompare(b.path))
 }
@@ -557,6 +567,37 @@ function indexDocFor(form: PublishForm) {
   ].join('\n')
 }
 
+function firstPrinciplesDocFor(form: PublishForm) {
+  return [
+    '# First Principles',
+    '',
+    `Audience: ${form.audience || 'Not specified'}.`,
+    '',
+    '## Operating Principles',
+    '',
+    '- Keep guidance factual, current, and tied to source records.',
+    '- Prefer clear ownership over informal responsibility.',
+    '- Make exceptions visible so future readers can audit decisions.',
+    '- Review high-impact guidance before it changes operational behavior.',
+  ].join('\n')
+}
+
+function assessmentMethodDocFor(form: PublishForm) {
+  return [
+    '# Assessment Method',
+    '',
+    `Compliance mode: ${form.complianceMode || 'Standard internal controls'}.`,
+    `Review cadence: ${form.reviewCadence || 'Not specified'}.`,
+    '',
+    '## Review Checklist',
+    '',
+    '- Confirm the page has an accountable owner.',
+    '- Check that instructions match current operating practice.',
+    '- Remove obsolete steps or mark them as superseded.',
+    '- Escalate legal, security, HR, or customer-impacting uncertainty before publishing.',
+  ].join('\n')
+}
+
 function governanceDocFor(form: PublishForm) {
   return [
     '# Governance',
@@ -601,6 +642,18 @@ function supportDocFor(form: PublishForm) {
     '- Capture the issue, impacted audience, urgency, and source page.',
     '- Route unclear ownership to the knowledge owner.',
     '- Escalate security, legal, HR, or customer-impacting items before publishing.',
+  ].join('\n')
+}
+
+function registerDocFor(form: PublishForm) {
+  return [
+    '# Register',
+    '',
+    'Use this register to track important KB records, decisions, and exceptions.',
+    '',
+    '| Item | Owner | Status | Review date | Notes |',
+    '| --- | --- | --- | --- | --- |',
+    `| ${form.title} baseline | ${form.knowledgeOwner || 'Not assigned'} | Draft | ${form.reviewCadence || 'Not specified'} | Initial ProDocStore publication. |`,
   ].join('\n')
 }
 

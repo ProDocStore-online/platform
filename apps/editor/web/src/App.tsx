@@ -25,6 +25,7 @@ import {
 import { pds as app, useAuth, useSubscription, useTheme, type SecretStatus, type Subscription, type User } from './lib/pds'
 import {
   buildLineDiff,
+  buildStarterKbFiles,
   createRepo,
   generateEditProposal,
   generateKbFiles,
@@ -81,6 +82,7 @@ import type {
   Proposal,
   PublishForm,
   PublishStep,
+  RepoFile,
   Settings,
 } from './types'
 
@@ -379,16 +381,20 @@ function EditorApp() {
       setKbPatch(kbId, form)
       validatePublishForm(form)
       validatePlatformAccess(user)
-      validateAi(settings)
-      validateByok(secrets)
       setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
-      setKbSteps(kbId, updateStep('ai', 'busy', 'Asking AI for source files'))
-      const nextFiles = await generateKbFiles(settings, form)
+      setKbSteps(kbId, updateStep('ai', 'busy', secrets.openai.configured ? 'Asking AI for source files' : 'Building starter source files'))
+      let nextFiles: RepoFile[]
+      if (secrets.openai.configured) {
+        validateAi(settings)
+        nextFiles = await generateKbFiles(settings, form)
+      } else {
+        nextFiles = buildStarterKbFiles(form)
+      }
       validateKbFiles(nextFiles)
       setKbPatch(kbId, { files: nextFiles, lastStatus: 'Files generated' })
       setActivePreview('files')
       setKbSteps(kbId, updateStep('ai', 'ok', `${nextFiles.length} files generated`))
-      setStatus('Files generated. Review, then publish.')
+      setStatus(secrets.openai.configured ? 'Files generated. Review, then publish.' : 'Starter files generated. Save an OpenAI key in Profile when you want AI-authored content.')
     } catch (error) {
       setStatus(messageOf(error))
       setKbPatch(kbId, { lastStatus: messageOf(error) })
@@ -411,12 +417,15 @@ function EditorApp() {
       if (!readyFiles.length) {
         validatePublishForm(form)
         validatePlatformAccess(user)
-        validateAi(settings)
-        validateByok(secrets)
         setKbSteps(kbId, resetSteps(initialSteps, 'plan', 'busy'))
         setKbSteps(kbId, updateStep('plan', 'ok', 'Zensical contract ready'))
-        setKbSteps(kbId, updateStep('ai', 'busy', 'Asking AI for source files'))
-        readyFiles = await generateKbFiles(settings, form)
+        setKbSteps(kbId, updateStep('ai', 'busy', secrets.openai.configured ? 'Asking AI for source files' : 'Building starter source files'))
+        if (secrets.openai.configured) {
+          validateAi(settings)
+          readyFiles = await generateKbFiles(settings, form)
+        } else {
+          readyFiles = buildStarterKbFiles(form)
+        }
         validateKbFiles(readyFiles)
         setKbPatch(kbId, { files: readyFiles })
         setKbSteps(kbId, updateStep('ai', 'ok', `${readyFiles.length} files generated`))
