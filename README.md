@@ -118,7 +118,7 @@ GitHub free organizations expose org Actions secrets only to public repos. If Pr
 
 The Cloudflare token needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone.
 
-Private/customer KB publishing also needs Cloudflare Zero Trust Access application and policy edit permissions. ProDocStore defaults private KBs to closed access and then opens them through explicit policy rules such as allowed email addresses or email domains.
+Private/customer KB publishing also needs Cloudflare Zero Trust Access application/policy edit permissions and Access Identity Provider read/write permissions. ProDocStore defaults private KBs to closed access, forces plain email-domain KBs through One-time PIN login, and then opens them through explicit policy rules such as allowed email addresses or email domains.
 
 ## Local Commands
 
