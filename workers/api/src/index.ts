@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import sodium from "libsodium-wrappers-sumo";
 
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
@@ -691,6 +690,7 @@ async function cloudflareProbe(url: string, token: string): Promise<{ ok: boolea
 }
 
 async function encryptForGitHub(publicKey: string, value: string): Promise<string> {
+  const sodium = (await import("libsodium-wrappers-sumo")).default;
   await sodium.ready;
   const keyBytes = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
   const valueBytes = sodium.from_string(value);
