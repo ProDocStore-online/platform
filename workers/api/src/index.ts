@@ -655,8 +655,11 @@ async function cloudflareReadiness(env: Env) {
     deploySecretsConfigured: configured,
     pagesApiReady: false,
     accessApiReady: false,
+    identityProvidersApiReady: false,
+    otpIdentityProviderReady: false,
     pagesError: "",
     accessError: "",
+    identityProvidersError: "",
   };
   if (!configured) {
     result.pagesError = "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be configured on the API Worker.";
@@ -670,6 +673,10 @@ async function cloudflareReadiness(env: Env) {
   const access = await cloudflareProbe(`${base}/access/apps?per_page=1`, env.CLOUDFLARE_API_TOKEN!);
   result.accessApiReady = access.ok;
   result.accessError = access.error;
+  const identityProviders = await cloudflareIdentityProviderReadiness(`${base}/access/identity_providers`, env.CLOUDFLARE_API_TOKEN!);
+  result.identityProvidersApiReady = identityProviders.ok;
+  result.otpIdentityProviderReady = identityProviders.otpReady;
+  result.identityProvidersError = identityProviders.error;
   return result;
 }
 
@@ -687,6 +694,31 @@ async function cloudflareProbe(url: string, token: string): Promise<{ ok: boolea
     return { ok: false, error: detail || `Cloudflare API returned ${res.status}` };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Cloudflare API probe failed" };
+  }
+}
+
+async function cloudflareIdentityProviderReadiness(url: string, token: string): Promise<{ ok: boolean; otpReady: boolean; error: string }> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+    const data: { success?: boolean; result?: Array<{ type?: string }>; errors?: Array<{ code?: number; message?: string; error?: string }> } =
+      await res.json<{ success?: boolean; result?: Array<{ type?: string }>; errors?: Array<{ code?: number; message?: string; error?: string }> }>().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      const otpReady = Boolean(data.result?.some((item) => item.type === "onetimepin"));
+      return {
+        ok: true,
+        otpReady,
+        error: otpReady ? "" : "One-time PIN Access identity provider is not configured.",
+      };
+    }
+    const detail = data.errors?.map((item) => item.message || item.error || item.code).filter(Boolean).join("; ");
+    return { ok: false, otpReady: false, error: detail || `Cloudflare identity provider API returned ${res.status}` };
+  } catch (error) {
+    return { ok: false, otpReady: false, error: error instanceof Error ? error.message : "Cloudflare identity provider probe failed" };
   }
 }
 

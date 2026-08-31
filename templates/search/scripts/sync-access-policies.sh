@@ -37,6 +37,10 @@ CURL="${CURL:-curl}"
 BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/access"
 ALLOW_NAME="Allow ProDocStore users"
 BYPASS_NAME="Office network bypass"
+SIMPLE_EMAIL_ACCESS=false
+if { [ -n "$EMAIL_DOMAIN" ] || [ -n "$CLIENT_DOMAIN" ] || [ -n "$CLIENT_EMAILS" ]; } && [ -z "$ACCESS_RULES_JSON" ]; then
+  SIMPLE_EMAIL_ACCESS=true
+fi
 
 # ── Build allow-policy include array ──
 if [ -n "$EMAIL_DOMAIN" ]; then
@@ -152,6 +156,66 @@ if [ "$BYPASS_INCLUDES" != "[]" ]; then
 else
   BYPASS_PREC=""
   ALLOW_PREC=$(next_prec 1 "$USED_PRECS")
+fi
+
+# For plain email-domain/email policies, force the Access application to use
+# One-time PIN only. Otherwise Cloudflare may offer account-level social IdPs
+# whose OAuth app belongs to a different product and can fail before Access
+# policy evaluation.
+if [ "$SIMPLE_EMAIL_ACCESS" = "true" ]; then
+  echo "Ensuring One-time PIN login method for email-based Access policy..."
+  idp_resp=$("$CURL" -sS "${BASE}/identity_providers" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+  if [ "$(jq -r '.success // false' <<<"$idp_resp")" != "true" ]; then
+    echo "::error::Cloudflare token cannot list Access identity providers. Add 'Access: Organizations, Identity Providers, and Groups Read' and Write permissions."
+    echo "$idp_resp" >&2
+    exit 1
+  fi
+  otp_id=$(jq -r '(.result // [])[] | select(.type == "onetimepin") | .id' <<<"$idp_resp" | head -1)
+  if [ -z "$otp_id" ]; then
+    create_idp_resp=$("$CURL" -sS -X POST "${BASE}/identity_providers" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data '{"name":"One-time PIN login","type":"onetimepin","config":{}}')
+    otp_id=$(jq -r '.result.id // empty' <<<"$create_idp_resp")
+    if [ -z "$otp_id" ]; then
+      echo "::error::Cloudflare token cannot create the One-time PIN Access identity provider. Add 'Access: Organizations, Identity Providers, and Groups Write'."
+      echo "$create_idp_resp" >&2
+      exit 1
+    fi
+    echo "Created One-time PIN identity provider."
+  fi
+
+  app_resp=$("$CURL" -sS "${BASE}/apps/${APP_ID}" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+  if [ "$(jq -r '.success // false' <<<"$app_resp")" != "true" ]; then
+    echo "::error::Failed to read Access app before login-method update"
+    echo "$app_resp" >&2
+    exit 1
+  fi
+  app_payload=$(jq -c --arg otp "$otp_id" '.result | {
+    name,
+    type,
+    domain,
+    self_hosted_domains,
+    session_duration,
+    allowed_idps: [$otp],
+    auto_redirect_to_identity: false,
+    app_launcher_visible: (.app_launcher_visible // true),
+    enable_binding_cookie: (.enable_binding_cookie // false),
+    http_only_cookie_attribute: (.http_only_cookie_attribute // true),
+    options_preflight_bypass: (.options_preflight_bypass // false)
+  }' <<<"$app_resp")
+  update_app_resp=$("$CURL" -sS -X PUT "${BASE}/apps/${APP_ID}" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data "$app_payload")
+  if [ "$(jq -r '.success // false' <<<"$update_app_resp")" != "true" ]; then
+    echo "::error::Failed to restrict Access app login method to One-time PIN"
+    echo "$update_app_resp" >&2
+    exit 1
+  fi
+  echo "Access app login method restricted to One-time PIN."
 fi
 
 # ── Create bypass policy if any office CIDRs ──

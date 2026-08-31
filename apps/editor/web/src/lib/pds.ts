@@ -40,8 +40,11 @@ export interface PlatformStatus {
     deploySecretsConfigured: boolean
     pagesApiReady: boolean
     accessApiReady: boolean
+    identityProvidersApiReady: boolean
+    otpIdentityProviderReady: boolean
     pagesError: string
     accessError: string
+    identityProvidersError: string
   }
 }
 

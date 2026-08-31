@@ -575,7 +575,11 @@ function EditorApp() {
         fetch('https://mcp.prodocstore.online/health').then((res) => res.ok ? res.json() as Promise<McpHealth> : null).catch(() => null),
       ])
       const githubReady = platform.github.oauthConfigured && platform.github.publishingTokenConfigured
-      const cloudflareReady = platform.cloudflare.deploySecretsConfigured && platform.cloudflare.pagesApiReady && platform.cloudflare.accessApiReady
+      const cloudflareReady = platform.cloudflare.deploySecretsConfigured
+        && platform.cloudflare.pagesApiReady
+        && platform.cloudflare.accessApiReady
+        && platform.cloudflare.identityProvidersApiReady
+        && platform.cloudflare.otpIdentityProviderReady
       const mcpReady = Boolean(mcp?.oauthConfigured && mcp.storageConfigured)
       let currentSecrets = secrets
       if (!currentSecrets.openai.configured) {
@@ -602,7 +606,7 @@ function EditorApp() {
         openai?.ok ? 'OpenAI BYOK is valid.' : currentSecrets.openai.configured ? `OpenAI ${openai?.status ?? 'not checked'}${openaiError ? `: ${openaiError}` : ''}.` : 'OpenAI needs your BYOK key.',
         cloudflareReady
           ? 'Cloudflare Pages and Access APIs are ready.'
-          : `Cloudflare needs setup${platform.cloudflare.accessError ? `: ${platform.cloudflare.accessError}` : platform.cloudflare.pagesError ? `: ${platform.cloudflare.pagesError}` : '.'}`,
+          : `Cloudflare needs setup${platform.cloudflare.identityProvidersError ? `: ${platform.cloudflare.identityProvidersError}` : platform.cloudflare.accessError ? `: ${platform.cloudflare.accessError}` : platform.cloudflare.pagesError ? `: ${platform.cloudflare.pagesError}` : '.'}`,
         mcpReady ? 'MCP OAuth is configured.' : `MCP OAuth is not configured${mcp?.callbackUrl ? `; create its GitHub OAuth app with callback ${mcp.callbackUrl}.` : '.'}`,
       ]
       setConnections({
