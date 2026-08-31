@@ -66,7 +66,25 @@ app.get("/", (c) => c.json({
   editorBaseUrl: c.env.EDITOR_BASE_URL,
 }));
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "prodocstore-api" }));
+app.get("/api/health", (c) => c.json({
+  ok: true,
+  service: "prodocstore-api",
+  github: {
+    oauthConfigured: Boolean(c.env.GITHUB_CLIENT_ID && c.env.GITHUB_CLIENT_SECRET),
+    clientId: c.env.GITHUB_CLIENT_ID || null,
+    callbackUrl: new URL("/auth/github/callback", c.req.url).toString(),
+  },
+  google: {
+    oauthConfigured: Boolean(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
+    clientId: c.env.GOOGLE_CLIENT_ID || null,
+    callbackUrl: new URL("/auth/google/callback", c.req.url).toString(),
+  },
+}));
+
+app.get("/api/health/oauth/github", async (c) => {
+  const callbackUrl = new URL("/auth/github/callback", c.req.url).toString();
+  return c.json(await githubOAuthCredentialDiagnostic(c.env.GITHUB_CLIENT_ID, c.env.GITHUB_CLIENT_SECRET, callbackUrl));
+});
 
 app.get("/api/platform/status", async (c) => {
   requireSession(c);
@@ -460,6 +478,44 @@ function requireSession(c: Parameters<typeof app.fetch>[0] extends never ? never
 
 function requireSecret(value: string | undefined, name: string) {
   if (!value) throwJson(500, `${name} is not configured`);
+}
+
+async function githubOAuthCredentialDiagnostic(clientId: string | undefined, clientSecret: string | undefined, redirectUri: string) {
+  const configured = Boolean(clientId && clientSecret);
+  if (!clientId || !clientSecret) {
+    return {
+      ok: false,
+      configured,
+      clientId: clientId || null,
+      callbackUrl: redirectUri,
+      secretAccepted: false,
+      providerError: "not_configured",
+    };
+  }
+
+  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code: `diagnostic-${crypto.randomUUID()}`,
+      redirect_uri: redirectUri,
+    }),
+  });
+  const tokenJson = await tokenRes.json<{ error?: string; error_description?: string }>();
+  const secretAccepted = tokenJson.error === "bad_verification_code";
+
+  return {
+    ok: secretAccepted,
+    configured,
+    clientId,
+    callbackUrl: redirectUri,
+    secretAccepted,
+    providerStatus: tokenRes.status,
+    providerError: tokenJson.error || null,
+    providerErrorDescription: tokenJson.error_description || null,
+  };
 }
 
 function safeNext(input: string | undefined, fallback: string): string {

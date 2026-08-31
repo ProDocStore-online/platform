@@ -24,6 +24,7 @@ jobs:
         working-directory: workers/api
     env:
       HAS_CLOUDFLARE_SECRETS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+      EXPECTED_GITHUB_CLIENT_ID: Ov23liLxhaOSp6UL7mqr
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -39,6 +40,26 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Verify API OAuth configuration
+        if: env.HAS_CLOUDFLARE_SECRETS == 'true'
+        run: |
+          set -euo pipefail
+          HEALTH="$(curl -fsS https://api.prodocstore.online/api/health)"
+          echo "$HEALTH" | jq .
+          if [ "$(echo "$HEALTH" | jq -r '.github.oauthConfigured')" != "true" ]; then
+            echo "::error::ProDocStore API deployed, but GitHub OAuth is not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET as Wrangler secrets on prodocstore-api."
+            exit 1
+          fi
+          if [ "$(echo "$HEALTH" | jq -r '.github.clientId')" != "$EXPECTED_GITHUB_CLIENT_ID" ]; then
+            echo "::error::ProDocStore API deployed with the wrong GitHub OAuth client id. Expected ${EXPECTED_GITHUB_CLIENT_ID} for callback https://api.prodocstore.online/auth/github/callback."
+            exit 1
+          fi
+          OAUTH="$(curl -fsS https://api.prodocstore.online/api/health/oauth/github)"
+          echo "$OAUTH" | jq .
+          if [ "$(echo "$OAUTH" | jq -r '.ok')" != "true" ]; then
+            echo "::error::ProDocStore API GitHub OAuth client secret was rejected by GitHub. Rotate the Console OAuth app secret and update GITHUB_CLIENT_SECRET on prodocstore-api."
+            exit 1
+          fi
       - name: Cloudflare secrets missing
         if: env.HAS_CLOUDFLARE_SECRETS != 'true'
         run: echo "::notice::API deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as ProDocStore organization Actions secrets."

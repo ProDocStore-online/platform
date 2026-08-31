@@ -785,10 +785,14 @@ export default {
         ok: true,
         service: "prodocstore-mcp",
         oauthConfigured: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
+        githubClientId: env.GITHUB_CLIENT_ID || null,
         storageConfigured: Boolean(env.OAUTH_KV && env.PDS_API_KV),
         githubOrg: env.GITHUB_ORG,
         callbackUrl: "https://mcp.prodocstore.online/callback",
       });
+    }
+    if (url.pathname === "/health/oauth/github") {
+      return jsonResponse(await githubOAuthCredentialDiagnostic(env.GITHUB_CLIENT_ID, env.GITHUB_CLIENT_SECRET, "https://mcp.prodocstore.online/callback"));
     }
     if (url.pathname === "/" || url.pathname === "") {
       if (isProtocolClient(request)) return wrongEndpoint();
@@ -863,6 +867,44 @@ function wrongEndpoint(): Response {
     }),
     { status: 405, headers: { "content-type": "application/json", allow: "GET, HEAD" } },
   );
+}
+
+async function githubOAuthCredentialDiagnostic(clientId: string | undefined, clientSecret: string | undefined, redirectUri: string) {
+  const configured = Boolean(clientId && clientSecret);
+  if (!clientId || !clientSecret) {
+    return {
+      ok: false,
+      configured,
+      clientId: clientId || null,
+      callbackUrl: redirectUri,
+      secretAccepted: false,
+      providerError: "not_configured",
+    };
+  }
+
+  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code: `diagnostic-${crypto.randomUUID()}`,
+      redirect_uri: redirectUri,
+    }),
+  });
+  const tokenJson = await tokenRes.json<{ error?: string; error_description?: string }>();
+  const secretAccepted = tokenJson.error === "bad_verification_code";
+
+  return {
+    ok: secretAccepted,
+    configured,
+    clientId,
+    callbackUrl: redirectUri,
+    secretAccepted,
+    providerStatus: tokenRes.status,
+    providerError: tokenJson.error || null,
+    providerErrorDescription: tokenJson.error_description || null,
+  };
 }
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
