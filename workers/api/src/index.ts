@@ -618,30 +618,34 @@ async function putGitHubRepoSecret(tokens: GitHubToken[], repo: string, name: st
 }
 
 async function putGitHubRepoSecretWithToken(token: string, repo: string, name: string, value: string): Promise<void> {
-  const publicKeyRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/public-key`, {
-    headers: githubApiHeaders(token),
+  const publicKey = await retryGitHubSecretRequest(`public key lookup for ${repo}`, async () => {
+    const publicKeyRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/public-key`, {
+      headers: githubApiHeaders(token),
+    });
+    if (!publicKeyRes.ok) {
+      throw new RetryableGitHubError(publicKeyRes.status, await githubErrorDetail(publicKeyRes));
+    }
+    return publicKeyRes.json<{ key?: string; key_id?: string }>();
   });
-  if (!publicKeyRes.ok) {
-    throw new Error(`public key lookup returned ${publicKeyRes.status}: ${await githubErrorDetail(publicKeyRes)}`);
-  }
-  const publicKey = await publicKeyRes.json<{ key?: string; key_id?: string }>();
   if (!publicKey.key || !publicKey.key_id) throw new Error("public key response was incomplete");
 
   const encrypted = await encryptForGitHub(publicKey.key, value);
-  const putRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/${encodeURIComponent(name)}`, {
-    method: "PUT",
-    headers: {
-      ...githubApiHeaders(token),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      encrypted_value: encrypted,
-      key_id: publicKey.key_id,
-    }),
+  await retryGitHubSecretRequest(`secret write for ${repo}/${name}`, async () => {
+    const putRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      headers: {
+        ...githubApiHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        encrypted_value: encrypted,
+        key_id: publicKey.key_id,
+      }),
+    });
+    if (!putRes.ok) {
+      throw new RetryableGitHubError(putRes.status, await githubErrorDetail(putRes));
+    }
   });
-  if (!putRes.ok) {
-    throw new Error(`secret write returned ${putRes.status}: ${await githubErrorDetail(putRes)}`);
-  }
 }
 
 async function cloudflareReadiness(env: Env) {
@@ -719,6 +723,39 @@ async function githubErrorDetail(res: Response): Promise<string> {
   } catch {
     return text.slice(0, 500);
   }
+}
+
+class RetryableGitHubError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`${status}: ${detail}`);
+  }
+}
+
+async function retryGitHubSecretRequest<T>(label: string, operation: () => Promise<T>): Promise<T> {
+  const delays = [400, 900, 1600, 2600, 4200];
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableGitHubSecretError(error) || attempt === delays.length) break;
+      await sleep(delays[attempt]);
+    }
+  }
+  throw new Error(`${label} failed after retry: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
+function isRetryableGitHubSecretError(error: unknown): boolean {
+  if (!(error instanceof RetryableGitHubError)) return false;
+  return [404, 409, 422, 429, 500, 502, 503, 504].includes(error.status);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function encodeURIComponentRepo(repo: string): string {
