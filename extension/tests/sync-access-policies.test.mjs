@@ -160,14 +160,14 @@ test('{"success": true, "result": null} is handled without jq iteration crash', 
   }
 });
 
-test("no Access rules configured deletes managed policies and leaves app closed", () => {
+test("no Access rules configured deletes managed policies, preserves manual policies, and leaves app closed", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
     const dispatch = `
       if (url.includes("/policies") && method === "GET")
-        emit('{"success": true, "result": [{"id":"p1","name":"Old allow","precedence":1}]}');
+        emit('{"success": true, "result": [{"id":"manual1","name":"Manual allow","precedence":1},{"id":"p1","name":"Allow ProDocStore users","precedence":2},{"id":"p2","name":"Office network bypass","precedence":3}]}');
       if (url.includes("/policies/") && method === "DELETE")
-        emit('{"success": true, "result": {"id":"p1"}}');
+        emit('{"success": true, "result": {}}');
     `;
     const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const env = {
@@ -185,7 +185,9 @@ test("no Access rules configured deletes managed policies and leaves app closed"
     );
     assert.match(r.stdout, /closed by default/);
     const calls = readCurlLog(logPath);
-    assert.ok(calls.some(([m]) => m === "DELETE"));
+    assert.ok(calls.some(([m, u]) => m === "DELETE" && u.endsWith("/policies/p1")));
+    assert.ok(calls.some(([m, u]) => m === "DELETE" && u.endsWith("/policies/p2")));
+    assert.equal(calls.some(([m, u]) => m === "DELETE" && u.endsWith("/policies/manual1")), false);
     assert.equal(calls.filter(([m]) => m === "POST").length, 0);
   } finally {
     tmp.cleanup();
@@ -201,7 +203,7 @@ test('list-policies error response (success:false) fails the script', () => {
       if (url.includes("/policies") && method === "GET")
         emit('{"success": false, "errors":[{"code": 10000, "message":"Auth error"}]}');
     `;
-    const { mockPath } = makeMockCurl(tmp.root, dispatch);
+    const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const r = runScript(BASE_ENV, mockPath);
     assert.notEqual(r.status, 0);
     const combined = r.stdout + r.stderr;
@@ -234,7 +236,7 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
       if (url.includes("/policies") && method === "POST")
         emit('{"success": true, "result": {"id": "new"}}');
     `);
-    const { mockPath } = makeMockCurl(tmp.root, dispatch);
+    const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
     const env = { ...BASE_ENV, OFFICE_CIDRS: "10.0.0.0/24" };
     const r = runScript(env, mockPath);
     assert.equal(
@@ -244,6 +246,8 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
     );
     assert.match(r.stdout, /precedence 3/, `expected bypass at prec 3:\n${r.stdout}`);
     assert.match(r.stdout, /precedence 4/, `expected allow at prec 4:\n${r.stdout}`);
+    const calls = readCurlLog(logPath);
+    assert.equal(calls.some(([m]) => m === "DELETE"), false);
   } finally {
     tmp.cleanup();
   }
@@ -251,19 +255,22 @@ test("dynamic precedence skips reusable policies at 1 and 2", () => {
 
 // ── Delete verification warning ───────────────────────────────────
 
-test("delete failure surfaces as ::warning:: but doesn't fail the script", () => {
+test("managed duplicate delete failure surfaces as ::warning:: but doesn't fail the script", () => {
   const tmp = mkdtempBare("sync-access-");
   try {
     const dispatch = withOtpIdentityProvider(`
       if (url.includes("/policies") && method === "GET")
         emit(JSON.stringify({
           success: true,
-          result: [{ id: "p1", name: "Old", precedence: 1 }],
+          result: [
+            { id: "p1", name: "Allow ProDocStore users", precedence: 1 },
+            { id: "p2", name: "Allow ProDocStore users", precedence: 2 },
+          ],
         }));
+      if (url.includes("/policies/") && method === "PUT")
+        emit('{"success": true, "result": {"id": "p1"}}');
       if (url.includes("/policies/") && method === "DELETE")
         emit('{"success": false, "errors":[{"message":"cannot delete"}]}');
-      if (url.includes("/policies") && method === "POST")
-        emit('{"success": true, "result": {"id": "new"}}');
     `);
     const { mockPath } = makeMockCurl(tmp.root, dispatch);
     const r = runScript(BASE_ENV, mockPath);
@@ -273,7 +280,7 @@ test("delete failure surfaces as ::warning:: but doesn't fail the script", () =>
       `exit=${r.status}\nSTDOUT:\n${r.stdout}\nSTDERR:\n${r.stderr}`,
     );
     assert.match(r.stdout, /::warning::/);
-    assert.match(r.stdout, /Failed to delete/);
+    assert.match(r.stdout, /Failed to delete duplicate managed policy/);
   } finally {
     tmp.cleanup();
   }
@@ -298,11 +305,37 @@ test("empty policy list + no CIDRs -> single allow POST", () => {
       `exit=${r.status}\nSTDOUT:\n${r.stdout}\nSTDERR:\n${r.stderr}`,
     );
     assert.doesNotMatch(r.stderr, /Cannot iterate/);
-    assert.match(r.stdout, /Created allow policy/);
+    assert.match(r.stdout, /Synced allow policy/);
     const posts = readCurlLog(logPath).filter(([m]) => m === "POST");
     assert.equal(posts.length, 1);
     // Allow policy takes precedence 1 when it's the only managed policy.
     assert.match(r.stdout, /at precedence 1/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("failed managed policy update does not delete the existing managed policy", () => {
+  const tmp = mkdtempBare("sync-access-");
+  try {
+    const dispatch = withOtpIdentityProvider(`
+      if (url.includes("/policies") && method === "GET")
+        emit(JSON.stringify({
+          success: true,
+          result: [{ id: "p1", name: "Allow ProDocStore users", precedence: 1 }],
+        }));
+      if (url.includes("/policies/") && method === "PUT")
+        emit('{"success": false, "errors":[{"message":"update failed"}]}');
+      if (url.includes("/policies/") && method === "DELETE")
+        emit('{"success": true, "result": {"id": "p1"}}');
+    `);
+    const { mockPath, logPath } = makeMockCurl(tmp.root, dispatch);
+    const r = runScript(BASE_ENV, mockPath);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout + r.stderr, /update failed|Failed to update managed policy/);
+    const calls = readCurlLog(logPath);
+    assert.ok(calls.some(([m, u]) => m === "PUT" && u.endsWith("/policies/p1")));
+    assert.equal(calls.some(([m]) => m === "DELETE"), false);
   } finally {
     tmp.cleanup();
   }

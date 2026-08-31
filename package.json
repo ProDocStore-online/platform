@@ -5,12 +5,13 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "editor:typecheck": "pnpm --dir apps/editor typecheck",
+    "editor:test": "pnpm --dir apps/editor test",
     "editor:build": "pnpm --dir apps/editor build",
     "api:typecheck": "npm --prefix workers/api run typecheck",
     "api:deploy": "npm --prefix workers/api run deploy",
     "mcp:typecheck": "npm --prefix workers/mcp run typecheck",
     "mcp:test": "npm --prefix workers/mcp run test",
     "mcp:deploy": "npm --prefix workers/mcp run deploy",
-    "test": "npm run editor:typecheck && npm run api:typecheck && npm run mcp:typecheck && npm run mcp:test"
+    "test": "npm run editor:test && npm run api:typecheck && npm run mcp:typecheck && npm run mcp:test"
   }
 }

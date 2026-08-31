@@ -287,104 +287,15 @@ async function writeGitHubFile(repo: string, path: string, content: string) {
 function deployWorkflow(form: PublishForm) {
   const project = form.slug
   const customDomain = form.customDomain
-  const accessEnv = form.visibility === 'private'
-    ? `
-          ACCESS_EMAIL_DOMAIN: ${yamlString(form.accessEmailDomain)}
-          ACCESS_ALLOWED_EMAILS: ${yamlString(form.accessAllowedEmails)}
-          ACCESS_CLIENT_DOMAIN: ${yamlString(form.accessClientDomain)}
-          ACCESS_OFFICE_CIDRS: ${yamlString(form.accessOfficeCidrs)}
-          ACCESS_RULES_JSON: ${yamlString(form.accessRulesJson)}
-`
-    : ''
-  const accessSteps = form.visibility === 'private'
-    ? `
-      - name: Ensure Cloudflare Access app
-        id: access
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-${accessEnv}        run: |
-          set -euo pipefail
-          DOMAIN="${project}.pages.dev"
-          BASE="https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/access"
-          APP_ID=""
-          PAGE=1
-          while true; do
-            LIST_RESPONSE=$(curl -sS "\${BASE}/apps?page=\${PAGE}&per_page=50" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
-            if [ "$(echo "$LIST_RESPONSE" | jq -r '.success // false')" != "true" ]; then
-              echo "::error::Failed to list Cloudflare Access apps"
-              echo "$LIST_RESPONSE" >&2
-              exit 1
-            fi
-            MATCH=$(echo "$LIST_RESPONSE" | jq -r --arg d "$DOMAIN" '(.result // [])[] | select(.self_hosted_domains[]? == $d or .domain == $d) | .id' | head -1)
-            if [ -n "$MATCH" ]; then APP_ID="$MATCH"; break; fi
-            TOTAL_PAGES=$(echo "$LIST_RESPONSE" | jq -r '.result_info.total_pages // 1')
-            [ "$PAGE" -ge "$TOTAL_PAGES" ] && break
-            PAGE=$((PAGE + 1))
-          done
-          if [ -z "$APP_ID" ]; then
-            CREATE_RESPONSE=$(curl -sS -X POST "\${BASE}/apps" \
-              -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "$(jq -nc --arg name "${project}" --arg domain "$DOMAIN" '{name:$name, domain:$domain, type:"self_hosted", session_duration:"24h"}')")
-            APP_ID=$(echo "$CREATE_RESPONSE" | jq -r '.result.id // empty')
-            if [ -z "$APP_ID" ]; then
-              echo "::error::Failed to create Cloudflare Access app for $DOMAIN"
-              echo "$CREATE_RESPONSE" >&2
-              exit 1
-            fi
-          fi
-          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
-      - name: Sync Cloudflare Access policies
-        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
-        with:
-          app-id: \${{ steps.access.outputs.app_id }}
-          cf-api-token: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          cf-account-id: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          email-domain: ${yamlString(form.accessEmailDomain)}
-          client-emails: ${yamlString(form.accessAllowedEmails)}
-          client-domain: ${yamlString(form.accessClientDomain)}
-          office-cidrs: ${yamlString(form.accessOfficeCidrs)}
-          access-rules-json: ${yamlString(form.accessRulesJson)}
-`
-    : ''
-  const verifyAccessStep = form.visibility === 'private'
-    ? `
-      - name: Verify Cloudflare Access protection
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          sleep 15
-          DOMAIN="${project}.pages.dev"
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://\${DOMAIN}" || echo "000")
-          echo "https://\${DOMAIN} returned HTTP \${HTTP_STATUS}"
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "::error::Private KB is publicly accessible. Rolling back latest deployment."
-            DEPLOYMENTS=$(curl -sS "https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/deployments" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
-            LATEST_ID=$(echo "$DEPLOYMENTS" | jq -r '.result[0].id // empty')
-            if [ -n "$LATEST_ID" ]; then
-              curl -sS -X DELETE "https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/deployments/\${LATEST_ID}?force=true" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" >/dev/null
-            fi
-            exit 1
-          fi
-`
-    : ''
-  const domainStep = customDomain
-    ? `
-      - name: Attach custom domain
-        run: npx wrangler pages domain add "${customDomain}" --project-name="${project}" || true
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-`
-    : ''
   return `name: Deploy Zensical KB
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'docs/**'
+      - 'zensical.toml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -397,102 +308,20 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-      - run: python -m pip install zensical
-      - run: python -m zensical build --strict
-      - name: Inject ProDocStore source metadata
-        run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = require('node:path');
-
-          const repo = process.env.GITHUB_REPOSITORY;
-          if (!repo) throw new Error('GITHUB_REPOSITORY is not set');
-
-          const siteDir = 'site';
-          const docsDir = 'docs';
-          const sourceExts = ['.md', '.mdx', '.markdown', '.html', '.htm'];
-
-          function walk(dir) {
-            if (!fs.existsSync(dir)) return [];
-            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-              const full = path.join(dir, entry.name);
-              return entry.isDirectory() ? walk(full) : [full];
-            });
-          }
-
-          function escapeAttr(value) {
-            return String(value)
-              .replace(/&/g, '&amp;')
-              .replace(/"/g, '&quot;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-          }
-
-          function sourceForHtml(file) {
-            let rel = path.relative(siteDir, file).split(path.sep).join('/');
-            if (rel === 'index.html') rel = 'index';
-            else if (rel.endsWith('/index.html')) rel = rel.slice(0, -'/index.html'.length);
-            else rel = rel.replace(/\\.html?$/i, '');
-            const candidates = sourceExts.map((ext) => path.posix.join(docsDir, rel + ext));
-            return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
-          }
-
-          for (const file of walk(siteDir).filter((candidate) => /\\.html?$/i.test(candidate))) {
-            let html = fs.readFileSync(file, 'utf8');
-            html = html.replace(/<meta\\s+[^>]*name=["']source-repo["'][^>]*>\\s*/gi, '');
-            html = html.replace(/<meta\\s+[^>]*name=["']source-path["'][^>]*>\\s*/gi, '');
-            const sourcePath = sourceForHtml(file);
-            const meta = [
-              '<meta name="source-repo" content="' + escapeAttr(repo) + '">',
-              '<meta name="source-path" content="' + escapeAttr(sourcePath) + '">',
-            ].join('\\n      ');
-            if (/<head[^>]*>/i.test(html)) {
-              html = html.replace(/<head([^>]*)>/i, '<head$1>\\n      ' + meta);
-            } else {
-              html = meta + '\\n' + html;
-            }
-            fs.writeFileSync(file, html);
-          }
-          NODE
-      - name: Ensure Cloudflare Pages project
-        run: |
-          set -euo pipefail
-          PROJECT_NAME="${project}"
-          BASE="https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
-          PROJECT_RESPONSE=$(curl -sS "\${BASE}/\${PROJECT_NAME}" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
-          if [ "$(echo "$PROJECT_RESPONSE" | jq -r '.success // false')" = "true" ]; then
-            echo "Cloudflare Pages project \${PROJECT_NAME} already exists."
-            exit 0
-          fi
-          CREATE_RESPONSE=$(curl -sS -X POST "\${BASE}" \
-            -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data "$(jq -nc --arg name "\${PROJECT_NAME}" '{name:$name, production_branch:"main"}')")
-          if [ "$(echo "$CREATE_RESPONSE" | jq -r '.success // false')" != "true" ]; then
-            echo "::error::Failed to create Cloudflare Pages project \${PROJECT_NAME}"
-            echo "$CREATE_RESPONSE" >&2
-            exit 1
-          fi
-          echo "Created Cloudflare Pages project \${PROJECT_NAME}."
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-${accessSteps}
-      - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy site --project-name="${project}" --branch=main
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-${verifyAccessStep}${domainStep}`
+    uses: ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@main
+    with:
+      project-name: ${yamlString(project)}
+      public: ${form.visibility === 'public'}
+      custom-domain: ${yamlString(customDomain)}
+      email-domain: ${yamlString(form.accessEmailDomain)}
+      allowed-emails: ${yamlString(form.accessAllowedEmails)}
+      client-domain: ${yamlString(form.accessClientDomain)}
+      office-cidrs: ${yamlString(form.accessOfficeCidrs)}
+      access-rules-json: ${yamlString(form.accessRulesJson)}
+    secrets:
+      CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+`
 }
 
 function ensureFallbackFiles(files: RepoFile[], form: PublishForm, workflow: string): RepoFile[] {

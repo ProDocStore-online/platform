@@ -15,6 +15,6 @@
     "build": "pnpm --filter @prodocstore-editor/web build",
     "preview": "pnpm --filter @prodocstore-editor/web preview",
     "typecheck": "pnpm --filter @prodocstore-editor/web exec tsc -b",
-    "test": "pnpm --filter @prodocstore-editor/web exec tsc -b"
+    "test": "pnpm --filter @prodocstore-editor/web exec tsc -b && pnpm --filter @prodocstore-editor/web test"
   }
 }

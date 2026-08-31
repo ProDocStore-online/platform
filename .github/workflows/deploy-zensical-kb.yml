@@ -1,0 +1,347 @@
+name: Deploy Zensical KB (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: Cloudflare Pages project name
+        required: true
+        type: string
+      public:
+        description: Publish without Cloudflare Access protection
+        required: false
+        type: boolean
+        default: false
+      custom-domain:
+        description: Optional custom domain for public KBs
+        required: false
+        type: string
+        default: ""
+      email-domain:
+        description: Primary staff email domain for private KB access
+        required: false
+        type: string
+        default: ""
+      allowed-emails:
+        description: Comma-separated staff email addresses for private KB access
+        required: false
+        type: string
+        default: ""
+      client-domain:
+        description: Optional client email domain for private KB access
+        required: false
+        type: string
+        default: ""
+      client-emails:
+        description: Comma-separated client email addresses for private KB access
+        required: false
+        type: string
+        default: ""
+      office-cidrs:
+        description: Comma-separated office CIDRs that bypass Access
+        required: false
+        type: string
+        default: ""
+      access-rules-json:
+        description: Advanced Cloudflare Access include/require/exclude JSON
+        required: false
+        type: string
+        default: ""
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-zensical-${{ inputs.project-name }}
+      cancel-in-progress: true
+    env:
+      PROJECT_NAME: ${{ inputs.project-name }}
+      CUSTOM_DOMAIN: ${{ inputs.custom-domain }}
+      PROTECT_SITE: ${{ !inputs.public }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Validate publish inputs
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$PROJECT_NAME" | grep -Eq '^[a-z][a-z0-9-]{1,57}$'; then
+            echo "::error::Cloudflare Pages project name must be lowercase letters, numbers, and hyphens."
+            exit 1
+          fi
+          if [ "$PROTECT_SITE" = "true" ] && [ -n "$CUSTOM_DOMAIN" ]; then
+            echo "::error::Private custom domains are blocked until Access custom-domain provisioning is implemented."
+            exit 1
+          fi
+
+      - run: python -m pip install zensical
+
+      - run: python -m zensical build --strict
+
+      - name: Inject ProDocStore source metadata
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          if (!repo) throw new Error('GITHUB_REPOSITORY is not set');
+
+          const siteDir = 'site';
+          const docsDir = 'docs';
+          const sourceExts = ['.md', '.mdx', '.markdown', '.html', '.htm'];
+
+          function walk(dir) {
+            if (!fs.existsSync(dir)) return [];
+            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+              const full = path.join(dir, entry.name);
+              return entry.isDirectory() ? walk(full) : [full];
+            });
+          }
+
+          function escapeAttr(value) {
+            return String(value)
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          }
+
+          function sourceForHtml(file) {
+            let rel = path.relative(siteDir, file).split(path.sep).join('/');
+            if (rel === 'index.html') rel = 'index';
+            else if (rel.endsWith('/index.html')) rel = rel.slice(0, -'/index.html'.length);
+            else rel = rel.replace(/\.html?$/i, '');
+            const candidates = sourceExts.map((ext) => path.posix.join(docsDir, rel + ext));
+            return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+          }
+
+          for (const file of walk(siteDir).filter((candidate) => /\.html?$/i.test(candidate))) {
+            let html = fs.readFileSync(file, 'utf8');
+            html = html.replace(/<meta\s+[^>]*name=["']source-repo["'][^>]*>\s*/gi, '');
+            html = html.replace(/<meta\s+[^>]*name=["']source-path["'][^>]*>\s*/gi, '');
+            const sourcePath = sourceForHtml(file);
+            const meta = [
+              '<meta name="source-repo" content="' + escapeAttr(repo) + '">',
+              '<meta name="source-path" content="' + escapeAttr(sourcePath) + '">',
+            ].join('\n      ');
+            if (/<head[^>]*>/i.test(html)) {
+              html = html.replace(/<head([^>]*)>/i, '<head$1>\n      ' + meta);
+            } else {
+              html = meta + '\n' + html;
+            }
+            fs.writeFileSync(file, html);
+          }
+          NODE
+
+      - name: Ensure Cloudflare Pages project
+        id: pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
+          body="$(mktemp)"
+          code=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --max-time 30 -o "$body" -w '%{http_code}' \
+            "${BASE}/${PROJECT_NAME}") || code=""
+
+          if [ "$code" = "200" ]; then
+            source_type=$(jq -r '.result.source.type // empty' <"$body")
+            if [ -n "$source_type" ]; then
+              echo "::error::Cloudflare Pages project ${PROJECT_NAME} is Git-connected (${source_type}). ProDocStore publishes by direct upload; delete or replace the Git-connected project first."
+              cat "$body" >&2
+              exit 1
+            fi
+            domain=$(jq -r '.result.subdomain // empty' <"$body")
+            if [ -z "$domain" ]; then
+              echo "::error::Cloudflare Pages project ${PROJECT_NAME} has no result.subdomain in the API response. Refusing to guess ${PROJECT_NAME}.pages.dev."
+              cat "$body" >&2
+              exit 1
+            fi
+            echo "Cloudflare Pages project ${PROJECT_NAME} already exists at ${domain}."
+            echo "domain=${domain}" >> "$GITHUB_OUTPUT"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$code" != "404" ]; then
+            msg=$(jq -r '.errors[0].message // empty' <"$body" 2>/dev/null || true)
+            echo "::error::Failed to read Cloudflare Pages project ${PROJECT_NAME} (HTTP ${code:-none}${msg:+: ${msg}}). Refusing to guess the pages.dev domain."
+            cat "$body" >&2 || true
+            exit 1
+          fi
+
+          CREATE_RESPONSE=$(curl -sS -X POST "${BASE}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc --arg name "${PROJECT_NAME}" '{name:$name, production_branch:"main"}')")
+          if [ "$(echo "$CREATE_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+            echo "::error::Failed to create Cloudflare Pages project ${PROJECT_NAME}"
+            echo "$CREATE_RESPONSE" >&2
+            exit 1
+          fi
+          domain=$(jq -r '.result.subdomain // empty' <<<"$CREATE_RESPONSE")
+          if [ -z "$domain" ]; then
+            echo "::error::Created Cloudflare Pages project ${PROJECT_NAME}, but Cloudflare returned no result.subdomain. Refusing to guess ${PROJECT_NAME}.pages.dev."
+            echo "$CREATE_RESPONSE" >&2
+            exit 1
+          fi
+          if [ "$domain" != "${PROJECT_NAME}.pages.dev" ]; then
+            echo "::warning::Cloudflare assigned ${domain}; protecting and verifying the actual Pages domain instead of ${PROJECT_NAME}.pages.dev."
+          fi
+          echo "Created Cloudflare Pages project ${PROJECT_NAME} at ${domain}."
+          echo "domain=${domain}" >> "$GITHUB_OUTPUT"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Remove Cloudflare Access app for public KB
+        if: env.PROTECT_SITE != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_DOMAIN: ${{ steps.pages.outputs.domain }}
+        run: |
+          set -euo pipefail
+          DOMAIN="${PAGES_DOMAIN}"
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/access"
+          PAGE=1
+          while true; do
+            LIST_RESPONSE=$(curl -sS "${BASE}/apps?page=${PAGE}&per_page=50" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+            if [ "$(echo "$LIST_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+              echo "::error::Failed to list Cloudflare Access apps"
+              echo "$LIST_RESPONSE" >&2
+              exit 1
+            fi
+            MATCHES=$(echo "$LIST_RESPONSE" | jq -r --arg d "$DOMAIN" '(.result // [])[] | select(.self_hosted_domains[]? == $d or .domain == $d) | .id')
+            for APP_ID in $MATCHES; do
+              echo "Deleting Access app ${APP_ID} for public KB domain ${DOMAIN}"
+              DELETE_RESPONSE=$(curl -sS -X DELETE "${BASE}/apps/${APP_ID}" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+              if [ "$(echo "$DELETE_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+                echo "::error::Failed to delete Access app ${APP_ID} for public KB"
+                echo "$DELETE_RESPONSE" >&2
+                exit 1
+              fi
+            done
+            TOTAL_PAGES=$(echo "$LIST_RESPONSE" | jq -r '.result_info.total_pages // 1')
+            [ "$PAGE" -ge "$TOTAL_PAGES" ] && break
+            PAGE=$((PAGE + 1))
+          done
+
+      - name: Ensure Cloudflare Access app
+        if: env.PROTECT_SITE == 'true'
+        id: access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_DOMAIN: ${{ steps.pages.outputs.domain }}
+        run: |
+          set -euo pipefail
+          DOMAIN="${PAGES_DOMAIN}"
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/access"
+          APP_ID=""
+          PAGE=1
+          while true; do
+            LIST_RESPONSE=$(curl -sS "${BASE}/apps?page=${PAGE}&per_page=50" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+            if [ "$(echo "$LIST_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+              echo "::error::Failed to list Cloudflare Access apps"
+              echo "$LIST_RESPONSE" >&2
+              exit 1
+            fi
+            MATCH=$(echo "$LIST_RESPONSE" | jq -r --arg d "$DOMAIN" '(.result // [])[] | select(.self_hosted_domains[]? == $d or .domain == $d) | .id' | head -1)
+            if [ -n "$MATCH" ]; then APP_ID="$MATCH"; break; fi
+            TOTAL_PAGES=$(echo "$LIST_RESPONSE" | jq -r '.result_info.total_pages // 1')
+            [ "$PAGE" -ge "$TOTAL_PAGES" ] && break
+            PAGE=$((PAGE + 1))
+          done
+          if [ -z "$APP_ID" ]; then
+            CREATE_RESPONSE=$(curl -sS -X POST "${BASE}/apps" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -nc --arg name "${PROJECT_NAME}" --arg domain "$DOMAIN" '{name:$name, domain:$domain, self_hosted_domains:[$domain, ("*." + $domain)], type:"self_hosted", session_duration:"24h"}')")
+            APP_ID=$(echo "$CREATE_RESPONSE" | jq -r '.result.id // empty')
+            if [ -z "$APP_ID" ]; then
+              echo "::error::Failed to create Cloudflare Access app for $DOMAIN"
+              echo "$CREATE_RESPONSE" >&2
+              exit 1
+            fi
+          fi
+          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Merge allowed email lists
+        id: emails
+        run: |
+          set -euo pipefail
+          ALL=""
+          if [ -n "${{ inputs.allowed-emails }}" ]; then
+            ALL="${{ inputs.allowed-emails }}"
+          fi
+          if [ -n "${{ inputs.client-emails }}" ]; then
+            [ -n "$ALL" ] && ALL="${ALL},"
+            ALL="${ALL}${{ inputs.client-emails }}"
+          fi
+          echo "merged=${ALL}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync Cloudflare Access policies
+        if: env.PROTECT_SITE == 'true'
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
+        with:
+          app-id: ${{ steps.access.outputs.app_id }}
+          cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cf-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          email-domain: ${{ inputs.email-domain }}
+          client-emails: ${{ steps.emails.outputs.merged }}
+          client-domain: ${{ inputs.client-domain }}
+          office-cidrs: ${{ inputs.office-cidrs }}
+          access-rules-json: ${{ inputs.access-rules-json }}
+
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy site --project-name="${PROJECT_NAME}" --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify Cloudflare Access protection
+        if: env.PROTECT_SITE == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_DOMAIN: ${{ steps.pages.outputs.domain }}
+        run: |
+          set -euo pipefail
+          sleep 15
+          DOMAIN="${PAGES_DOMAIN}"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://${DOMAIN}" || echo "000")
+          echo "https://${DOMAIN} returned HTTP ${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "::error::Private KB is publicly accessible. Rolling back latest deployment."
+            DEPLOYMENTS=$(curl -sS "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+            LATEST_ID=$(echo "$DEPLOYMENTS" | jq -r '.result[0].id // empty')
+            if [ -n "$LATEST_ID" ]; then
+              curl -sS -X DELETE "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments/${LATEST_ID}?force=true" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" >/dev/null
+            fi
+            exit 1
+          fi
+
+      - name: Attach custom domain
+        if: inputs.custom-domain != ''
+        run: npx wrangler pages domain add "${CUSTOM_DOMAIN}" --project-name="${PROJECT_NAME}" || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

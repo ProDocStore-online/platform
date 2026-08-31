@@ -7,8 +7,8 @@ description: |
                  + optional client domain
                  + optional explicit client emails
 
-  All pre-existing policies on the app are deleted before recreation, so the
-  live state always matches the inputs.
+  Only ProDocStore-managed policies are created, updated, or removed. Existing
+  tenant/manual policies on the Access app are preserved.
 
   Shell logic lives in templates/search/scripts/sync-access-policies.sh so it
   can be unit-tested locally.

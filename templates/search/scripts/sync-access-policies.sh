@@ -37,6 +37,7 @@ CURL="${CURL:-curl}"
 BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/access"
 ALLOW_NAME="Allow ProDocStore users"
 BYPASS_NAME="Office network bypass"
+MANAGED_NAMES=$(jq -nc --arg allow "$ALLOW_NAME" --arg bypass "$BYPASS_NAME" '[$allow, $bypass]')
 SIMPLE_EMAIL_ACCESS=false
 if { [ -n "$EMAIL_DOMAIN" ] || [ -n "$CLIENT_DOMAIN" ] || [ -n "$CLIENT_EMAILS" ]; } && [ -z "$ACCESS_RULES_JSON" ]; then
   SIMPLE_EMAIL_ACCESS=true
@@ -110,37 +111,29 @@ fi
 echo "Existing policies:"
 echo "$EXISTING" | jq -r '(.result // [])[] | "  \(.id) prec=\(.precedence) \(.name)"'
 
-# Delete ALL existing policies (clean slate for idempotency).
-ALL_IDS=$(echo "$EXISTING" | jq -r '(.result // [])[].id')
-for pid in $ALL_IDS; do
-  pname=$(echo "$EXISTING" | jq -r --arg id "$pid" '.result[] | select(.id==$id) | .name')
-  echo "Deleting policy: $pname ($pid)"
-  del_resp=$("$CURL" -sS -X DELETE \
-    "${BASE}/apps/${APP_ID}/policies/${pid}" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-  if [ "$(echo "$del_resp" | jq -r '.success // false')" != "true" ]; then
-    echo "::warning::Failed to delete policy $pname ($pid): $(echo "$del_resp" | jq -r '.errors[0].message // "unknown"')"
-  fi
-done
-
-# Check what policies remain (some may be undeletable reusable policies).
-REMAINING=$("$CURL" -sS "${BASE}/apps/${APP_ID}/policies" \
-  -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-REMAIN_COUNT=$(echo "$REMAINING" | jq '(.result // []) | length')
-if [ "$REMAIN_COUNT" -gt 0 ]; then
-  echo "$REMAIN_COUNT undeletable policies remain:"
-  echo "$REMAINING" | jq -r '(.result // [])[] | "  prec=\(.precedence) \(.name)"'
-fi
+POLICIES=$(echo "$EXISTING" | jq -c '(.result // [])')
 
 if [ "$ALLOW_INCLUDES" = "[]" ] && [ "$BYPASS_INCLUDES" = "[]" ]; then
+  for managed_name in "$ALLOW_NAME" "$BYPASS_NAME"; do
+    ids=$(jq -r --arg name "$managed_name" '.[] | select(.name == $name) | .id' <<<"$POLICIES")
+    for pid in $ids; do
+      echo "Deleting managed policy with no configured rules: $managed_name ($pid)"
+      del_resp=$("$CURL" -sS -X DELETE \
+        "${BASE}/apps/${APP_ID}/policies/${pid}" \
+        -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+      if [ "$(echo "$del_resp" | jq -r '.success // false')" != "true" ]; then
+        echo "::warning::Failed to delete managed policy $managed_name ($pid): $(echo "$del_resp" | jq -r '.errors[0].message // "unknown"')"
+      fi
+    done
+  done
   echo "No Access allow rules configured; managed policies were removed so the app stays closed by default."
   exit 0
 fi
 
-# Find next available precedences (avoid conflicts with undeletable policies).
-# Reserve a slot for bypass only if we'll actually create one, so the allow
-# policy can take precedence 1 when it's the only managed policy.
-USED_PRECS=$(echo "$REMAINING" | jq -r '[(.result // [])[].precedence] | sort | .[]')
+# Find next available precedences. Manual policies are preserved and keep their
+# precedence. ProDocStore-managed policies may be moved so bypass can remain
+# ahead of allow without deleting a working policy before its replacement exists.
+USED_PRECS=$(jq -r --argjson names "$MANAGED_NAMES" '[.[] | select((.name as $n | $names | index($n)) | not) | .precedence] | sort | .[]' <<<"$POLICIES")
 next_prec() {
   local candidate=$1
   local taken="$2"
@@ -148,6 +141,57 @@ next_prec() {
     candidate=$((candidate + 1))
   done
   echo "$candidate"
+}
+
+policy_id_by_name() {
+  jq -r --arg name "$1" '[.[] | select(.name == $name)] | sort_by(.precedence // 999999) | .[0].id // empty' <<<"$POLICIES"
+}
+
+upsert_policy() {
+  local name="$1"
+  local payload="$2"
+  local existing_id
+  existing_id=$(policy_id_by_name "$name")
+  if [ -n "$existing_id" ]; then
+    echo "Updating managed policy: $name ($existing_id)" >&2
+    resp=$("$CURL" -sS -X PUT "${BASE}/apps/${APP_ID}/policies/${existing_id}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data "$payload")
+    if [ "$(jq -r '.success // false' <<<"$resp")" != "true" ]; then
+      echo "::error::Failed to update managed policy $name"
+      echo "$resp" >&2
+      exit 1
+    fi
+    echo "$existing_id"
+  else
+    echo "Creating managed policy: $name" >&2
+    resp=$("$CURL" -sS -X POST "${BASE}/apps/${APP_ID}/policies" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data "$payload")
+    if [ "$(jq -r '.success // false' <<<"$resp")" != "true" ]; then
+      echo "::error::Failed to create managed policy $name"
+      echo "$resp" >&2
+      exit 1
+    fi
+    jq -r '.result.id // empty' <<<"$resp"
+  fi
+}
+
+delete_duplicate_managed_policies() {
+  local name="$1"
+  local keep_id="$2"
+  ids=$(jq -r --arg name "$name" --arg keep "$keep_id" '.[] | select(.name == $name and .id != $keep) | .id' <<<"$POLICIES")
+  for pid in $ids; do
+    echo "Deleting duplicate managed policy: $name ($pid)"
+    del_resp=$("$CURL" -sS -X DELETE \
+      "${BASE}/apps/${APP_ID}/policies/${pid}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+    if [ "$(echo "$del_resp" | jq -r '.success // false')" != "true" ]; then
+      echo "::warning::Failed to delete duplicate managed policy $name ($pid): $(echo "$del_resp" | jq -r '.errors[0].message // "unknown"')"
+    fi
+  done
 }
 
 if [ "$BYPASS_INCLUDES" != "[]" ]; then
@@ -225,16 +269,11 @@ if [ "$BYPASS_INCLUDES" != "[]" ]; then
     --argjson inc "$BYPASS_INCLUDES" \
     --argjson prec "$BYPASS_PREC" \
     '{name:$name, decision:"bypass", precedence:$prec, include:$inc}')
-  resp=$("$CURL" -sS -X POST "${BASE}/apps/${APP_ID}/policies" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data "$payload")
-  if [ "$(jq -r '.success // false' <<<"$resp")" != "true" ]; then
-    echo "::error::Failed to create bypass policy"
-    echo "$resp" >&2
-    exit 1
-  fi
-  echo "Created bypass policy at precedence $BYPASS_PREC ($(jq 'length' <<<"$BYPASS_INCLUDES") CIDR rule(s))"
+  keep_id=$(upsert_policy "$BYPASS_NAME" "$payload")
+  delete_duplicate_managed_policies "$BYPASS_NAME" "$keep_id"
+  echo "Synced bypass policy at precedence $BYPASS_PREC ($(jq 'length' <<<"$BYPASS_INCLUDES") CIDR rule(s))"
+else
+  delete_duplicate_managed_policies "$BYPASS_NAME" ""
 fi
 
 # ── Create allow policy if any identity rule is configured ──
@@ -246,18 +285,12 @@ if [ "$ALLOW_INCLUDES" != "[]" ]; then
     --argjson exc "$ALLOW_EXCLUDES" \
     --argjson prec "$ALLOW_PREC" \
     '{name:$name, decision:"allow", precedence:$prec, include:$inc} + (if ($req | length) > 0 then {require:$req} else {} end) + (if ($exc | length) > 0 then {exclude:$exc} else {} end)')
-  echo "Creating allow policy with $(jq 'length' <<<"$ALLOW_INCLUDES") include rule(s)..."
+  echo "Syncing allow policy with $(jq 'length' <<<"$ALLOW_INCLUDES") include rule(s)..."
   echo "Payload: $payload"
-  resp=$("$CURL" -sS -X POST "${BASE}/apps/${APP_ID}/policies" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data "$payload")
-  if [ "$(jq -r '.success // false' <<<"$resp")" != "true" ]; then
-    echo "::error::Failed to create allow policy"
-    echo "$resp" >&2
-    exit 1
-  fi
-  echo "Created allow policy at precedence $ALLOW_PREC ($(jq 'length' <<<"$ALLOW_INCLUDES") include rule(s))"
+  keep_id=$(upsert_policy "$ALLOW_NAME" "$payload")
+  delete_duplicate_managed_policies "$ALLOW_NAME" "$keep_id"
+  echo "Synced allow policy at precedence $ALLOW_PREC ($(jq 'length' <<<"$ALLOW_INCLUDES") include rule(s))"
 else
+  delete_duplicate_managed_policies "$ALLOW_NAME" ""
   echo "No identity allow rules configured; skipping allow policy."
 fi
