@@ -31,6 +31,11 @@ interface StoredSecret {
   label: string;
 }
 
+interface GitHubToken {
+  source: "platform" | "session";
+  value: string;
+}
+
 const SESSION_COOKIE = "pds_session";
 const STATE_PREFIX = "oauth_state:";
 const SESSION_PREFIX = "session:";
@@ -329,8 +334,7 @@ app.delete("/api/secrets/openai", async (c) => {
 });
 
 app.post("/api/github/deploy-secrets", async (c) => {
-  requireSession(c);
-  requireSecret(c.env.GITHUB_TOKEN, "GITHUB_TOKEN");
+  const session = requireSession(c);
   requireSecret(c.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN");
   requireSecret(c.env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
 
@@ -338,11 +342,13 @@ app.post("/api/github/deploy-secrets", async (c) => {
   const repo = typeof body.repo === "string" ? body.repo.trim() : "";
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return c.json({ error: "Repo must be owner/name" }, 400);
 
+  const tokens = githubTokens(c.env, session);
+  if (!tokens.length) throwJson(500, "No GitHub token is configured for repo secret installation.");
   const results = await Promise.all([
-    putGitHubRepoSecret(c.env, repo, "CLOUDFLARE_API_TOKEN", c.env.CLOUDFLARE_API_TOKEN!),
-    putGitHubRepoSecret(c.env, repo, "CLOUDFLARE_ACCOUNT_ID", c.env.CLOUDFLARE_ACCOUNT_ID!),
+    putGitHubRepoSecret(tokens, repo, "CLOUDFLARE_API_TOKEN", c.env.CLOUDFLARE_API_TOKEN!),
+    putGitHubRepoSecret(tokens, repo, "CLOUDFLARE_ACCOUNT_ID", c.env.CLOUDFLARE_ACCOUNT_ID!),
   ]);
-  return c.json({ ok: true, repo, secrets: results.map((name) => ({ name, status: "set" })) });
+  return c.json({ ok: true, repo, secrets: results.map((result) => ({ name: result.name, status: "set", source: result.source })) });
 });
 
 app.all("/api/proxy", async (c) => {
@@ -598,21 +604,34 @@ async function decryptSecret(env: Env, secret: StoredSecret): Promise<string> {
   return new TextDecoder().decode(plaintext);
 }
 
-async function putGitHubRepoSecret(env: Env, repo: string, name: string, value: string): Promise<string> {
+async function putGitHubRepoSecret(tokens: GitHubToken[], repo: string, name: string, value: string): Promise<{ name: string; source: GitHubToken["source"] }> {
+  const failures: string[] = [];
+  for (const token of tokens) {
+    try {
+      await putGitHubRepoSecretWithToken(token.value, repo, name, value);
+      return { name, source: token.source };
+    } catch (error) {
+      failures.push(`${token.source}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throwJson(500, `GitHub repo secret ${name} write failed for ${repo}. ${failures.join(" ")}`);
+}
+
+async function putGitHubRepoSecretWithToken(token: string, repo: string, name: string, value: string): Promise<void> {
   const publicKeyRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/public-key`, {
-    headers: githubApiHeaders(env),
+    headers: githubApiHeaders(token),
   });
   if (!publicKeyRes.ok) {
-    throwJson(500, `GitHub repo public key lookup failed for ${repo}: ${publicKeyRes.status}`);
+    throw new Error(`public key lookup returned ${publicKeyRes.status}: ${await githubErrorDetail(publicKeyRes)}`);
   }
   const publicKey = await publicKeyRes.json<{ key?: string; key_id?: string }>();
-  if (!publicKey.key || !publicKey.key_id) throwJson(500, `GitHub repo public key response was incomplete for ${repo}`);
+  if (!publicKey.key || !publicKey.key_id) throw new Error("public key response was incomplete");
 
   const encrypted = await encryptForGitHub(publicKey.key, value);
   const putRes = await fetch(`https://api.github.com/repos/${encodeURIComponentRepo(repo)}/actions/secrets/${encodeURIComponent(name)}`, {
     method: "PUT",
     headers: {
-      ...githubApiHeaders(env),
+      ...githubApiHeaders(token),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -621,9 +640,8 @@ async function putGitHubRepoSecret(env: Env, repo: string, name: string, value: 
     }),
   });
   if (!putRes.ok) {
-    throwJson(500, `GitHub repo secret ${name} write failed for ${repo}: ${putRes.status}`);
+    throw new Error(`secret write returned ${putRes.status}: ${await githubErrorDetail(putRes)}`);
   }
-  return name;
 }
 
 async function cloudflareReadiness(env: Env) {
@@ -676,13 +694,31 @@ async function encryptForGitHub(publicKey: string, value: string): Promise<strin
   return sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
 }
 
-function githubApiHeaders(env: Env): Record<string, string> {
+function githubTokens(env: Env, session: Session): GitHubToken[] {
+  const tokens: GitHubToken[] = [];
+  if (env.GITHUB_TOKEN) tokens.push({ source: "platform", value: env.GITHUB_TOKEN });
+  if (session.githubAccessToken && session.githubAccessToken !== env.GITHUB_TOKEN) tokens.push({ source: "session", value: session.githubAccessToken });
+  return tokens;
+}
+
+function githubApiHeaders(token: string): Record<string, string> {
   return {
     Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${env.GITHUB_TOKEN || ""}`,
+    Authorization: `Bearer ${token}`,
     "User-Agent": "prodocstore-api",
     "X-GitHub-Api-Version": "2022-11-28",
   };
+}
+
+async function githubErrorDetail(res: Response): Promise<string> {
+  const text = await res.text();
+  if (!text) return res.statusText || "empty response";
+  try {
+    const data = JSON.parse(text) as { message?: string; documentation_url?: string };
+    return [data.message, data.documentation_url].filter(Boolean).join(" ");
+  } catch {
+    return text.slice(0, 500);
+  }
 }
 
 function encodeURIComponentRepo(repo: string): string {
