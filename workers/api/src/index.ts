@@ -128,7 +128,7 @@ app.get("/auth/github/start", async (c) => {
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID!);
   url.searchParams.set("redirect_uri", callback.toString());
-  url.searchParams.set("scope", "read:user");
+  url.searchParams.set("scope", "read:user repo workflow");
   url.searchParams.set("state", state);
   url.searchParams.set("allow_signup", "true");
   return c.redirect(url.toString(), 302);
