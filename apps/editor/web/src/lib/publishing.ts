@@ -464,7 +464,25 @@ jobs:
           }
           NODE
       - name: Ensure Cloudflare Pages project
-        run: npx wrangler pages project create "${project}" --production-branch=main || true
+        run: |
+          set -euo pipefail
+          PROJECT_NAME="${project}"
+          BASE="https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
+          PROJECT_RESPONSE=$(curl -sS "\${BASE}/\${PROJECT_NAME}" -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}")
+          if [ "$(echo "$PROJECT_RESPONSE" | jq -r '.success // false')" = "true" ]; then
+            echo "Cloudflare Pages project \${PROJECT_NAME} already exists."
+            exit 0
+          fi
+          CREATE_RESPONSE=$(curl -sS -X POST "\${BASE}" \
+            -H "Authorization: Bearer \${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc --arg name "\${PROJECT_NAME}" '{name:$name, production_branch:"main"}')")
+          if [ "$(echo "$CREATE_RESPONSE" | jq -r '.success // false')" != "true" ]; then
+            echo "::error::Failed to create Cloudflare Pages project \${PROJECT_NAME}"
+            echo "$CREATE_RESPONSE" >&2
+            exit 1
+          fi
+          echo "Created Cloudflare Pages project \${PROJECT_NAME}."
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
