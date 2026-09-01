@@ -96,4 +96,6 @@ GitHub free org-level Actions secrets apply to public repositories only. For pri
 
 Private KB workflows also create and verify a Cloudflare Access application for the Pages URL before treating the deploy as successful. The Cloudflare token must include Pages edit, DNS edit, Workers/KV edit for the platform, Zero Trust Access application/policy edit permissions, and Access Identity Provider read/write permissions so email-domain KBs can force One-time PIN login.
 
+The API deploy workflow also requires D1 edit permission. Set `CLOUDFLARE_D1_API_TOKEN` with D1 edit scope, or make sure `CLOUDFLARE_API_TOKEN` already has that scope. If D1 migrations fail in CI on a schema-changing API commit, the Worker deploy is blocked until the token is fixed or the migration is applied manually.
+
 Private custom-domain Access enforcement is intentionally treated as a separate verification step. The safe default is to close the Pages URL first, then attach and verify custom-domain policy coverage before announcing the custom domain as ready.

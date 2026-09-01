@@ -113,11 +113,21 @@ Secrets are documented in `~/dev/secrets/inventory.yaml` and stored in `~/dev/se
 Required ProDocStore org Actions secrets:
 
 - `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_D1_API_TOKEN` for D1 migrations, optional only when `CLOUDFLARE_API_TOKEN` already has D1 edit permission
 - `CLOUDFLARE_ACCOUNT_ID`
 
 GitHub free organizations expose org Actions secrets only to public repos. If ProDocStore creates private customer repos without a paid GitHub org plan, required deploy secrets must be set at the repo level or publishing must use a separate deploy path.
 
-The Cloudflare token needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone.
+The Cloudflare token used by the API deploy workflow needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone. D1 migrations use `CLOUDFLARE_D1_API_TOKEN` when present, otherwise they fall back to `CLOUDFLARE_API_TOKEN`; one of those tokens must have `D1:Edit`. Schema-changing API deploys fail before Worker deployment if D1 migrations cannot be applied.
+
+Emergency fallback for a schema deploy:
+
+```bash
+cd workers/api
+wrangler d1 migrations apply prodocstore --remote
+```
+
+Only rerun `Deploy API` with `allow_migration_failure=true` after confirming the required migrations were applied manually or the deploy does not depend on the pending schema change.
 
 Platform-native private/customer KB publishing is enforced by the PDOCS API worker against D1 KB metadata. Private KBs default to closed access, then allow signed-in viewers whose verified OAuth email matches the KB's `access_email_domains` or `access_allowed_emails` fields. Org membership remains the source of edit/review/admin permissions.
 

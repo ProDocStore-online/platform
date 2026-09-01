@@ -249,15 +249,17 @@ Started:
 - `/api/publish/github` now records the submitted client-hosted publish target and commit-backed publish job.
 - `/api/publish/jobs?draftId=...` exposes submitted publish jobs for console polling/status UI.
 - The editor now stores and displays the latest commit, GitHub Actions URL, and publish job id for published KB drafts.
+- Added GitHub webhook-driven publish jobs for default-branch pushes to registered KB repositories.
+- `/api/publish/github` now installs or refreshes the repo-level push webhook for each published KB repo.
+- Added tested post-deploy Pages/custom-domain verification with fail-closed rollback behavior for unsafe private deploys.
+- API deploys now fail on schema-dependent commits when D1 migrations cannot be applied in CI.
 
 Still needed before this is production-complete:
 
 - Define the release process for future publisher tags after publisher changes are validated.
 - Add generated-workflow fixture tests for public/private/custom-domain/raw-Access cases.
-- Port the fuller post-deploy verifier and rollback behavior from the GlassDocs publisher.
-- Add GitHub webhook-driven publish jobs so a later push to the repo is visible in the ProDocStore console.
 - Build the managed hosting path so customer repos no longer need Cloudflare secrets by default.
-- Give the API deploy workflow a Cloudflare token with D1 migration permissions, or keep applying migrations manually before schema-dependent deploys.
+- Give the API deploy workflow a Cloudflare token with D1 migration permissions so schema deploys do not require manual intervention.
 
 ## Risks
 

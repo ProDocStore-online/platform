@@ -7,6 +7,12 @@ on:
       - 'workers/api/**'
       - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
+    inputs:
+      allow_migration_failure:
+        description: 'Emergency only: deploy even if D1 migrations cannot be applied.'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -35,15 +41,50 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Detect D1 migration changes
+        id: d1-migration-changes
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual API deploy treats D1 migrations as required."
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "No stable previous commit; treating D1 migrations as required."
+            exit 0
+          fi
+
+          if git diff --name-only "$BEFORE" "${{ github.sha }}" -- migrations/ | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "D1 migration files changed."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No D1 migration files changed."
+          fi
       - name: Apply D1 migrations
         if: env.HAS_CLOUDFLARE_SECRETS == 'true'
         run: |
-          if ! npx wrangler d1 migrations apply prodocstore --remote; then
-            echo "::warning::D1 migrations were not applied. Ensure CLOUDFLARE_API_TOKEN has D1 edit access, or apply migrations manually before deploying schema-dependent API changes."
+          set -euo pipefail
+          if npx wrangler d1 migrations apply prodocstore --remote; then
+            echo "D1 migrations applied or already current."
+            exit 0
           fi
+
+          if [ "$D1_MIGRATION_CHANGED" = "true" ] && [ "$ALLOW_MIGRATION_FAILURE" != "true" ]; then
+            echo "::error::D1 migrations could not be applied for a schema-dependent API deploy. Give CLOUDFLARE_API_TOKEN D1 edit permission, apply migrations manually, or rerun workflow_dispatch with allow_migration_failure=true for an emergency deploy."
+            exit 1
+          fi
+
+          echo "::warning::D1 migrations were not applied. No migration files changed in this push, so API deploy can continue. Ensure CLOUDFLARE_API_TOKEN has D1 edit access before the next schema-dependent deploy."
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN != '' && secrets.CLOUDFLARE_D1_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_MIGRATION_CHANGED: ${{ steps.d1-migration-changes.outputs.changed }}
+          ALLOW_MIGRATION_FAILURE: ${{ inputs.allow_migration_failure || false }}
       - name: Deploy to Cloudflare Workers
         if: env.HAS_CLOUDFLARE_SECRETS == 'true'
         run: npx wrangler deploy
