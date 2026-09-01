@@ -22,7 +22,7 @@ import {
   UserCircle,
   Wifi,
 } from 'lucide-react'
-import { pds as app, useAuth, useSubscription, useTheme, type SecretStatus, type Subscription, type User } from './lib/pds'
+import { pds as app, useAuth, useSubscription, useTheme, type PublishJobStatus, type SecretStatus, type Subscription, type User } from './lib/pds'
 import {
   buildLineDiff,
   buildStarterKbFiles,
@@ -278,6 +278,23 @@ function EditorApp() {
   }, [activeKbId, platformLoaded, user])
 
   useEffect(() => {
+    if (!user || !platformLoaded || !activeKbId) return
+    if (!activeKb || (!activeKb.lastPublishJobId && !activeKb.actionsUrl && !activeKb.repoUrl)) return
+    let cancelled = false
+    app.platform.publishJobs(activeKbId)
+      .then(({ jobs }) => {
+        if (cancelled || !jobs[0]) return
+        setKbs((current) => applyPublishJob(current, activeKbId, jobs[0]))
+      })
+      .catch((error) => {
+        if (!cancelled) setStatus(`Could not refresh publish status: ${messageOf(error)}`)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeKb?.actionsUrl, activeKb?.lastPublishJobId, activeKb?.repoUrl, activeKbId, platformLoaded, user])
+
+  useEffect(() => {
     localStorage.setItem('pds-edit-draft', JSON.stringify(editForm))
   }, [editForm])
 
@@ -305,6 +322,8 @@ function EditorApp() {
             lastCommitUrl: '',
             lastCommitSha: '',
             lastPublishJobId: '',
+            lastPublishStatus: '',
+            lastPublishMessage: '',
             lastStatus: 'Draft changed',
             steps: cloneSteps(),
           }
@@ -450,10 +469,14 @@ function EditorApp() {
         lastCommitUrl: published.commit.html_url,
         lastCommitSha: published.commit.sha,
         lastPublishJobId: published.publishJob.id,
+        lastPublishStatus: published.publishJob.status,
+        lastPublishMessage: '',
         lastStatus: 'Published',
       })
+      const { jobs } = await app.platform.publishJobs(kbId)
+      if (jobs[0]) setKbs((current) => applyPublishJob(current, kbId, jobs[0]))
       setKbSteps(kbId, updateStep('deploy', 'ok', 'Workflow started on GitHub'))
-      setStatus('Published. GitHub Actions is building the Zensical site.')
+      setStatus('Publish job submitted. GitHub Actions is building the Zensical site.')
       window.open(published.actionsUrl, '_blank', 'noopener,noreferrer')
     } catch (error) {
       setStatus(messageOf(error))
@@ -1059,9 +1082,11 @@ function SelectedKbHeader({ kb, onBack }: { kb: KnowledgeBaseDraft; onBack: () =
               Actions
             </a>
           )}
+          {kb.lastPublishStatus && <span>{publishJobLabel(kb.lastPublishStatus)}</span>}
           {kb.lastPublishJobId && <span>Job {kb.lastPublishJobId.slice(0, 8)}</span>}
         </div>
       )}
+      {kb.lastPublishMessage && <p>{kb.lastPublishMessage}</p>}
     </div>
   )
 }
@@ -1578,6 +1603,35 @@ function EditPanel({
       </div>
     </div>
   )
+}
+
+function applyPublishJob(kbs: KnowledgeBaseDraft[], kbId: string, job: PublishJobStatus): KnowledgeBaseDraft[] {
+  return kbs.map((kb) => (
+    kb.id === kbId
+      ? {
+          ...kb,
+          liveUrl: job.liveUrl || kb.liveUrl,
+          actionsUrl: job.actionsUrl || kb.actionsUrl,
+          lastCommitUrl: job.commitUrl || kb.lastCommitUrl,
+          lastCommitSha: job.commitSha || kb.lastCommitSha,
+          lastPublishJobId: job.id,
+          lastPublishStatus: job.status,
+          lastPublishMessage: job.message || '',
+          lastStatus: publishJobLabel(job.status),
+          updatedAt: nowIso(),
+        }
+      : kb
+  ))
+}
+
+function publishJobLabel(status: string): string {
+  const normalized = status.toLowerCase()
+  if (normalized === 'submitted' || normalized === 'queued') return 'Deploy submitted'
+  if (normalized === 'running' || normalized === 'in_progress') return 'Deploy running'
+  if (normalized === 'succeeded' || normalized === 'success' || normalized === 'completed') return 'Published'
+  if (normalized === 'failed' || normalized === 'failure') return 'Deploy failed'
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Deploy canceled'
+  return status || 'Publish status unknown'
 }
 
 export default App

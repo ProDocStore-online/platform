@@ -79,6 +79,8 @@ export interface KnowledgeBaseDraft extends PublishForm {
   lastCommitUrl: string
   lastCommitSha: string
   lastPublishJobId: string
+  lastPublishStatus: string
+  lastPublishMessage: string
   lastStatus: string
   createdAt: string
   updatedAt: string

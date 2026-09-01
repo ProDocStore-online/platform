@@ -49,6 +49,23 @@ export interface PlatformStatus {
   }
 }
 
+export interface PublishJobStatus {
+  id: string
+  status: string
+  mode: string
+  provider: string
+  repo: string
+  branch: string
+  commitSha: string
+  commitUrl: string
+  liveUrl: string
+  actionsUrl: string
+  message: string | null
+  createdAt: number
+  updatedAt: number
+  completedAt: number | null
+}
+
 const API_BASE = (import.meta.env.VITE_PDS_API_BASE as string | undefined) || 'https://api.prodocstore.online'
 const THEME_KEY = 'pds:theme:v1'
 
@@ -138,24 +155,7 @@ export const pds = {
         body: JSON.stringify({ draftId, form, files }),
       })
     },
-    publishJobs(draftId: string): Promise<{
-      jobs: Array<{
-        id: string
-        status: string
-        mode: string
-        provider: string
-        repo: string
-        branch: string
-        commitSha: string
-        commitUrl: string
-        liveUrl: string
-        actionsUrl: string
-        message: string | null
-        createdAt: number
-        updatedAt: number
-        completedAt: number | null
-      }>
-    }> {
+    publishJobs(draftId: string): Promise<{ jobs: PublishJobStatus[] }> {
       return apiJson(`/api/publish/jobs?draftId=${encodeURIComponent(draftId)}`)
     },
   },
