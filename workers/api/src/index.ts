@@ -6,7 +6,7 @@ import sealedbox from "tweetnacl-sealedbox-js";
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
 import { registerPublishRoutes } from "./routes/publish";
-import { createPublishJob, upsertPublishTarget } from "./lib/db";
+import { createPublishJob, listPublishJobsForDraft, upsertPublishTarget } from "./lib/db";
 
 interface GitHubUser {
   id: number;
@@ -467,6 +467,34 @@ app.post("/api/publish/github", async (c) => {
       createdAt: publishJob.created_at,
     },
     secrets: secrets.map((result) => ({ name: result.name, status: "set", source: result.source })),
+  });
+});
+
+app.get("/api/publish/jobs", async (c) => {
+  const session = requireSession(c);
+  const draftId = validateDraftId(c.req.query("draftId"));
+  if (!draftId) throwJson(400, "Draft id is required.");
+  const jobs = await listPublishJobsForDraft(c.env.DB, {
+    userId: session.user.id,
+    localDraftId: draftId,
+  });
+  return c.json({
+    jobs: jobs.map((job) => ({
+      id: job.id,
+      status: job.status,
+      mode: job.target_mode,
+      provider: job.target_provider,
+      repo: job.github_full_name,
+      branch: job.github_branch,
+      commitSha: job.github_commit_sha,
+      commitUrl: job.github_commit_url,
+      liveUrl: job.live_url,
+      actionsUrl: job.actions_url,
+      message: job.message,
+      createdAt: job.created_at,
+      updatedAt: job.updated_at,
+      completedAt: job.completed_at,
+    })),
   });
 });
 

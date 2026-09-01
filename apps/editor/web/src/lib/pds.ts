@@ -138,6 +138,26 @@ export const pds = {
         body: JSON.stringify({ draftId, form, files }),
       })
     },
+    publishJobs(draftId: string): Promise<{
+      jobs: Array<{
+        id: string
+        status: string
+        mode: string
+        provider: string
+        repo: string
+        branch: string
+        commitSha: string
+        commitUrl: string
+        liveUrl: string
+        actionsUrl: string
+        message: string | null
+        createdAt: number
+        updatedAt: number
+        completedAt: number | null
+      }>
+    }> {
+      return apiJson(`/api/publish/jobs?draftId=${encodeURIComponent(draftId)}`)
+    },
   },
 }
 

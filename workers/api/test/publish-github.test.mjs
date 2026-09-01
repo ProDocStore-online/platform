@@ -103,6 +103,30 @@ function fakeDb() {
           }
           throw new Error(`Unhandled D1 first: ${sql}`);
         },
+        async all() {
+          if (sql.includes("FROM publish_jobs j") && sql.includes("JOIN publish_targets t ON t.id = j.target_id")) {
+            const [userId, localDraftId, limit] = this.params;
+            const targetIds = new Map(
+              publishTargets
+                .filter((target) => target.user_id === userId && target.local_draft_id === localDraftId)
+                .map((target) => [target.id, target]),
+            );
+            const results = publishJobs
+              .filter((job) => targetIds.has(job.target_id))
+              .sort((a, b) => b.created_at - a.created_at)
+              .slice(0, limit)
+              .map((job) => {
+                const target = targetIds.get(job.target_id);
+                return {
+                  ...job,
+                  target_mode: target.mode,
+                  target_provider: target.provider,
+                };
+              });
+            return { results };
+          }
+          throw new Error(`Unhandled D1 all: ${sql}`);
+        },
         async run() {
           if (sql.includes("INSERT INTO publish_targets")) {
             const [
@@ -282,6 +306,21 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
     assert.equal(testEnv.DB.records.publishJobs.length, 1);
     assert.equal(testEnv.DB.records.publishJobs[0].target_id, testEnv.DB.records.publishTargets[0].id);
     assert.equal(testEnv.DB.records.publishJobs[0].github_commit_url, "https://github.com/ProDocStore-online/customer-kb/commit/newcommit");
+
+    const jobsResponse = await app.fetch(
+      new Request("https://api.prodocstore.online/api/publish/jobs?draftId=draft-1", {
+        headers: { Cookie: "pds_session=s1" },
+      }),
+      testEnv,
+    );
+    assert.equal(jobsResponse.status, 200, await jobsResponse.clone().text());
+    const jobsData = await jobsResponse.json();
+    assert.equal(jobsData.jobs.length, 1);
+    assert.equal(jobsData.jobs[0].status, "submitted");
+    assert.equal(jobsData.jobs[0].mode, "client-hosted");
+    assert.equal(jobsData.jobs[0].provider, "github");
+    assert.equal(jobsData.jobs[0].repo, "ProDocStore-online/customer-kb");
+    assert.equal(jobsData.jobs[0].commitSha, "newcommit");
 
     const secretWrites = calls.filter((call) => call.method === "PUT" && call.url.includes("/actions/secrets/"));
     assert.equal(secretWrites.length, 2);

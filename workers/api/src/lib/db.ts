@@ -318,3 +318,16 @@ export async function createPublishJob(db: D1Database, input: {
   ).run();
   return job;
 }
+
+export async function listPublishJobsForDraft(db: D1Database, input: { userId: string; localDraftId: string; limit?: number }): Promise<Array<PublishJob & { target_mode: string; target_provider: string }>> {
+  const limit = Math.min(Math.max(input.limit ?? 10, 1), 50);
+  const { results } = await db.prepare(
+    `SELECT j.*, t.mode AS target_mode, t.provider AS target_provider
+     FROM publish_jobs j
+     JOIN publish_targets t ON t.id = j.target_id
+     WHERE t.user_id = ? AND t.local_draft_id = ?
+     ORDER BY j.created_at DESC
+     LIMIT ?`,
+  ).bind(input.userId, input.localDraftId, limit).all<PublishJob & { target_mode: string; target_provider: string }>();
+  return results ?? [];
+}
