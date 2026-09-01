@@ -300,7 +300,7 @@ jobs:
 
       - name: Sync Cloudflare Access policies
         if: env.PROTECT_SITE == 'true'
-        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@main
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@publisher-v2
         with:
           app-id: ${{ steps.access.outputs.app_id }}
           cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -317,27 +317,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Verify Cloudflare Access protection
-        if: env.PROTECT_SITE == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_DOMAIN: ${{ steps.pages.outputs.domain }}
-        run: |
-          set -euo pipefail
-          sleep 15
-          DOMAIN="${PAGES_DOMAIN}"
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://${DOMAIN}" || echo "000")
-          echo "https://${DOMAIN} returned HTTP ${HTTP_STATUS}"
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "::error::Private KB is publicly accessible. Rolling back latest deployment."
-            DEPLOYMENTS=$(curl -sS "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-            LATEST_ID=$(echo "$DEPLOYMENTS" | jq -r '.result[0].id // empty')
-            if [ -n "$LATEST_ID" ]; then
-              curl -sS -X DELETE "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments/${LATEST_ID}?force=true" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" >/dev/null
-            fi
-            exit 1
-          fi
+      - name: Verify Cloudflare Pages exposure
+        uses: ProDocStore-online/platform/.github/actions/verify-pages-access@publisher-v2
+        with:
+          project-name: ${{ inputs.project-name }}
+          pages-domain: ${{ steps.pages.outputs.domain }}
+          protect-site: ${{ env.PROTECT_SITE }}
+          cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cf-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Attach custom domain
         if: inputs.custom-domain != ''

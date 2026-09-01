@@ -70,7 +70,7 @@ function workflowFor(form) {
 
 test("private KB workflow is a thin caller to the reusable Zensical publisher", () => {
   const workflow = workflowFor(baseForm());
-  assert.match(workflow, /uses: ProDocStore-online\/platform\/\.github\/workflows\/deploy-zensical-kb\.yml@publisher-v1/);
+  assert.match(workflow, /uses: ProDocStore-online\/platform\/\.github\/workflows\/deploy-zensical-kb\.yml@publisher-v2/);
   assert.match(workflow, /project-name: "customer-knowledge-base"/);
   assert.match(workflow, /public: false/);
   assert.match(workflow, /email-domain: "ozai\.digital"/);
