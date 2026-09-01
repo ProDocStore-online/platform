@@ -75,6 +75,10 @@ export interface KnowledgeBaseDraft extends PublishForm {
   files: RepoFile[]
   liveUrl: string
   repoUrl: string
+  actionsUrl: string
+  lastCommitUrl: string
+  lastCommitSha: string
+  lastPublishJobId: string
   lastStatus: string
   createdAt: string
   updatedAt: string

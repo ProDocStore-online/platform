@@ -301,6 +301,10 @@ function EditorApp() {
             files: [],
             liveUrl: '',
             repoUrl: '',
+            actionsUrl: '',
+            lastCommitUrl: '',
+            lastCommitSha: '',
+            lastPublishJobId: '',
             lastStatus: 'Draft changed',
             steps: cloneSteps(),
           }
@@ -439,7 +443,15 @@ function EditorApp() {
       setKbSteps(kbId, updateStep('repo', 'ok', published.repo.html_url))
       setKbSteps(kbId, updateStep('secrets', 'ok', 'Repo-level deploy secrets installed'))
       setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed atomically`))
-      setKbPatch(kbId, { repoUrl: published.repo.html_url, liveUrl: published.liveUrl, lastStatus: 'Published' })
+      setKbPatch(kbId, {
+        repoUrl: published.repo.html_url,
+        liveUrl: published.liveUrl,
+        actionsUrl: published.actionsUrl,
+        lastCommitUrl: published.commit.html_url,
+        lastCommitSha: published.commit.sha,
+        lastPublishJobId: published.publishJob.id,
+        lastStatus: 'Published',
+      })
       setKbSteps(kbId, updateStep('deploy', 'ok', 'Workflow started on GitHub'))
       setStatus('Published. GitHub Actions is building the Zensical site.')
       window.open(published.actionsUrl, '_blank', 'noopener,noreferrer')
@@ -998,6 +1010,11 @@ function KnowledgeBaseShelf({
                     <Github size={15} />
                   </a>
                 )}
+                {kb.actionsUrl && (
+                  <a href={kb.actionsUrl} target="_blank" rel="noreferrer" aria-label={`${kb.title} GitHub Actions`}>
+                    <ExternalLink size={15} />
+                  </a>
+                )}
               </div>
             </article>
           )
@@ -1028,6 +1045,23 @@ function SelectedKbHeader({ kb, onBack }: { kb: KnowledgeBaseDraft; onBack: () =
         <strong>{kb.title || 'Untitled KB'}</strong>
         <p>{kb.owner}/{kb.slug}</p>
       </div>
+      {(kb.lastCommitUrl || kb.actionsUrl) && (
+        <div className="selected-kb-links">
+          {kb.lastCommitUrl && (
+            <a href={kb.lastCommitUrl} target="_blank" rel="noreferrer">
+              <Github size={15} />
+              Commit{kb.lastCommitSha ? ` ${kb.lastCommitSha.slice(0, 7)}` : ''}
+            </a>
+          )}
+          {kb.actionsUrl && (
+            <a href={kb.actionsUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={15} />
+              Actions
+            </a>
+          )}
+          {kb.lastPublishJobId && <span>Job {kb.lastPublishJobId.slice(0, 8)}</span>}
+        </div>
+      )}
     </div>
   )
 }
