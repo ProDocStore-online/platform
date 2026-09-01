@@ -20,7 +20,9 @@ import {
   getProposal,
   applyProposal,
   decideProposal,
+  updateKbAccess,
 } from "../lib/db";
+import { accessLabel, canViewKb, normalizeAccessList, normalizeDomains } from "../lib/access";
 
 type App = Hono<{ Bindings: Env; Variables: Variables }>;
 type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
@@ -74,12 +76,20 @@ export function registerKbRoutes(app: App): void {
     if (!org) return c.json({ error: "org not found" }, 404);
     const role = await getRole(c.env.DB, org.id, session.user.id);
     if (!roleAtLeast(role, "editor")) return c.json({ error: "editor role required" }, 403);
-    const body = await readBody<{ slug?: string; title?: string; description?: string }>(c);
+    const body = await readBody<{ slug?: string; title?: string; description?: string; accessEmailDomains?: string; accessAllowedEmails?: string }>(c);
     const slug = (body.slug ?? "").trim().toLowerCase();
     const title = (body.title ?? "").trim();
     if (!SLUG.test(slug)) return c.json({ error: "slug must be lowercase letters, digits, dashes" }, 400);
     if (!title) return c.json({ error: "title is required" }, 400);
-    const kb = await createKb(c.env.DB, { orgId: org.id, slug, title, description: body.description, userId: session.user.id });
+    const kb = await createKb(c.env.DB, {
+      orgId: org.id,
+      slug,
+      title,
+      description: body.description,
+      accessEmailDomains: normalizeDomains(body.accessEmailDomains),
+      accessAllowedEmails: normalizeAccessList(body.accessAllowedEmails),
+      userId: session.user.id,
+    });
     return c.json({ kb });
   });
 
@@ -95,22 +105,42 @@ export function registerKbRoutes(app: App): void {
     const session = await authed(c);
     const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
     if (!kb) return c.json({ error: "not found" }, 404);
-    if (!role) return c.json({ error: "not a member" }, 403);
-    return c.json({ kb, role });
+    if (!canViewKb(kb, role, session)) return c.json({ error: "not found" }, 404);
+    return c.json({ kb, role, access: accessLabel(kb, role, session) });
+  });
+
+  app.patch("/api/kbs/:kbId", async (c) => {
+    const session = await authed(c);
+    const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!roleAtLeast(role, "admin")) return c.json({ error: "admin role required" }, 403);
+    const body = await readBody<{ title?: string; description?: string | null; visibility?: string; accessEmailDomains?: string; accessAllowedEmails?: string }>(c);
+    if (body.visibility && !["private", "org", "public"].includes(body.visibility)) return c.json({ error: "visibility must be private, org, or public" }, 400);
+    const updated = await updateKbAccess(c.env.DB, {
+      kbId: kb.id,
+      title: typeof body.title === "string" && body.title.trim() ? body.title.trim() : undefined,
+      description: typeof body.description === "string" ? body.description : undefined,
+      visibility: body.visibility,
+      accessEmailDomains: body.accessEmailDomains === undefined ? undefined : normalizeDomains(body.accessEmailDomains),
+      accessAllowedEmails: body.accessAllowedEmails === undefined ? undefined : normalizeAccessList(body.accessAllowedEmails),
+    });
+    return c.json({ kb: updated });
   });
 
   // — Pages —
   app.get("/api/kbs/:kbId/pages", async (c) => {
     const session = await authed(c);
     const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
-    if (!kb || !role) return c.json({ error: "not found" }, 404);
-    return c.json({ pages: await listPages(c.env.DB, kb.id) });
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!canViewKb(kb, role, session)) return c.json({ error: "not found" }, 404);
+    return c.json({ pages: await listPages(c.env.DB, kb.id), access: accessLabel(kb, role, session) });
   });
 
   app.get("/api/kbs/:kbId/pages/:path{.+}", async (c) => {
     const session = await authed(c);
     const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
-    if (!kb || !role) return c.json({ error: "not found" }, 404);
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!canViewKb(kb, role, session)) return c.json({ error: "not found" }, 404);
     const page = await getPage(c.env.DB, kb.id, c.req.param("path"));
     if (!page) return c.json({ error: "page not found" }, 404);
     return c.json({ page });

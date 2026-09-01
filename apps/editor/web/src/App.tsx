@@ -26,7 +26,6 @@ import { pds as app, useAuth, useSubscription, useTheme, type SecretStatus, type
 import {
   buildLineDiff,
   buildStarterKbFiles,
-  createRepo,
   generateEditProposal,
   generateKbFiles,
   githubEditUrl,
@@ -46,7 +45,6 @@ import {
   validateKbFiles,
   validatePlatformAccess,
   validatePublishForm,
-  writeFiles,
 } from './lib/publishing'
 import {
   ACTIVE_KB_KEY,
@@ -435,27 +433,16 @@ function EditorApp() {
       validatePlatformAccess(user)
 
       setKbSteps(kbId, updateStep('repo', 'busy', 'Creating repository'))
-      const repo = await createRepo(form)
-      setKbSteps(kbId, updateStep('repo', 'ok', repo.html_url))
-      setKbPatch(kbId, { repoUrl: repo.html_url })
-
-      if (form.visibility === 'private') {
-        setKbSteps(kbId, updateStep('secrets', 'busy', 'Installing repo-level deploy secrets'))
-        await app.platform.installDeploySecrets(repo.full_name)
-        setKbSteps(kbId, updateStep('secrets', 'ok', 'Repo-level deploy secrets installed'))
-      } else {
-        setKbSteps(kbId, updateStep('secrets', 'ok', 'Using public-org deploy secrets'))
-      }
-
-      setKbSteps(kbId, updateStep('files', 'busy', 'Writing files to main'))
-      await writeFiles(repo.full_name, readyFiles)
-      setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed`))
-
-      const url = liveTargetFor(form)
-      setKbPatch(kbId, { liveUrl: url, lastStatus: 'Published' })
+      setKbSteps(kbId, updateStep('secrets', 'busy', 'Preparing deploy secrets'))
+      setKbSteps(kbId, updateStep('files', 'busy', 'Committing files to main'))
+      const published = await app.platform.publishGitHub(form, readyFiles)
+      setKbSteps(kbId, updateStep('repo', 'ok', published.repo.html_url))
+      setKbSteps(kbId, updateStep('secrets', 'ok', 'Repo-level deploy secrets installed'))
+      setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed atomically`))
+      setKbPatch(kbId, { repoUrl: published.repo.html_url, liveUrl: published.liveUrl, lastStatus: 'Published' })
       setKbSteps(kbId, updateStep('deploy', 'ok', 'Workflow started on GitHub'))
       setStatus('Published. GitHub Actions is building the Zensical site.')
-      window.open(`${repo.html_url}/actions`, '_blank', 'noopener,noreferrer')
+      window.open(published.actionsUrl, '_blank', 'noopener,noreferrer')
     } catch (error) {
       setStatus(messageOf(error))
       setKbPatch(kbId, { lastStatus: messageOf(error) })

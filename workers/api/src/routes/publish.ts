@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { marked } from "marked";
 import { type Env, type Variables } from "../types";
 import { getKb, getRole, getPage, listPages } from "../lib/db";
+import { canViewKb } from "../lib/access";
 
 type App = Hono<{ Bindings: Env; Variables: Variables }>;
 type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
@@ -37,7 +38,7 @@ function shell(title: string, kbTitle: string, nav: string, bodyHtml: string): s
 <main>${bodyHtml}</main></div></body></html>`;
 }
 
-/** Access-controlled rendering of a private KB. Members only. */
+/** Access-controlled rendering of a private KB. Members or allowed email domains only. */
 export function registerPublishRoutes(app: App): void {
   app.get("/kb/:kbId", async (c) => renderKb(c, "docs/index.md"));
   app.get("/kb/:kbId/view/:path{.+}", async (c) => renderKb(c, c.req.param("path")));
@@ -48,7 +49,7 @@ export function registerPublishRoutes(app: App): void {
     const kb = await getKb(c.env.DB, c.req.param("kbId") ?? "");
     if (!kb) return c.html("<h1>Not found</h1>", 404);
     const role = await getRole(c.env.DB, kb.org_id, session.user.id);
-    if (!role) return c.html("<h1>You don't have access to this knowledge base.</h1>", 403);
+    if (!canViewKb(kb, role, session)) return c.html("<h1>You don't have access to this knowledge base.</h1>", 403);
 
     const pages = await listPages(c.env.DB, kb.id);
     const nav = pages.length

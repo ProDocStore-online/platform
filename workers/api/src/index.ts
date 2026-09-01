@@ -10,9 +10,17 @@ import { registerPublishRoutes } from "./routes/publish";
 interface GitHubUser {
   id: number;
   login: string;
+  email?: string | null;
   name?: string | null;
   avatar_url?: string | null;
   html_url?: string | null;
+}
+
+interface GitHubEmail {
+  email: string;
+  primary: boolean;
+  verified: boolean;
+  visibility?: string | null;
 }
 
 interface GoogleUser {
@@ -34,6 +42,43 @@ interface StoredSecret {
 interface GitHubToken {
   source: "platform" | "session";
   value: string;
+}
+
+interface PublishFormInput {
+  title?: unknown;
+  slug?: unknown;
+  owner?: unknown;
+  customDomain?: unknown;
+  visibility?: unknown;
+  prompt?: unknown;
+}
+
+interface RepoFileInput {
+  path?: unknown;
+  content?: unknown;
+}
+
+interface GitHubRepo {
+  full_name: string;
+  html_url: string;
+  default_branch?: string;
+}
+
+interface GitHubRef {
+  object?: {
+    sha?: string;
+  };
+}
+
+interface GitHubCommit {
+  sha?: string;
+  tree?: {
+    sha?: string;
+  };
+}
+
+interface GitHubTree {
+  sha?: string;
 }
 
 const SESSION_COOKIE = "pds_session";
@@ -128,7 +173,7 @@ app.get("/auth/github/start", async (c) => {
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID!);
   url.searchParams.set("redirect_uri", callback.toString());
-  url.searchParams.set("scope", "read:user repo workflow");
+  url.searchParams.set("scope", "read:user user:email repo workflow");
   url.searchParams.set("state", state);
   url.searchParams.set("allow_signup", "true");
   return c.redirect(url.toString(), 302);
@@ -166,6 +211,7 @@ app.get("/auth/github/callback", async (c) => {
   });
   if (!userRes.ok) return c.text(`GitHub user lookup failed: ${userRes.status}`, 401);
   const gh = await userRes.json<GitHubUser>();
+  const email = gh.email || await primaryGitHubEmail(tokenData.access_token);
   const session: Session = {
     id: crypto.randomUUID(),
     user: {
@@ -175,6 +221,7 @@ app.get("/auth/github/callback", async (c) => {
       name: gh.name || gh.login,
       avatarUrl: gh.avatar_url || "",
       githubUrl: gh.html_url || `https://github.com/${gh.login}`,
+      email,
     },
     githubAccessToken: tokenData.access_token,
     createdAt: new Date().toISOString(),
@@ -351,6 +398,39 @@ app.post("/api/github/deploy-secrets", async (c) => {
   return c.json({ ok: true, repo, secrets: results.map((result) => ({ name: result.name, status: "set", source: result.source })) });
 });
 
+app.post("/api/publish/github", async (c) => {
+  const session = requireSession(c);
+  requireSecret(c.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN");
+  requireSecret(c.env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
+
+  const body: { form?: PublishFormInput; files?: RepoFileInput[] } = await c.req.json<{ form?: PublishFormInput; files?: RepoFileInput[] }>().catch(() => ({}));
+  const form = validatePublishBody(body.form);
+  const files = validateRepoFiles(body.files);
+  const tokens = githubTokens(c.env, session);
+  if (!tokens.length) throwJson(500, "No GitHub token is configured for publishing.");
+
+  const published = await publishRepoWithTokens(tokens, form, files);
+  const secrets = await Promise.all([
+    putGitHubRepoSecret(tokens, published.repo.full_name, "CLOUDFLARE_API_TOKEN", c.env.CLOUDFLARE_API_TOKEN!),
+    putGitHubRepoSecret(tokens, published.repo.full_name, "CLOUDFLARE_ACCOUNT_ID", c.env.CLOUDFLARE_ACCOUNT_ID!),
+  ]);
+  const commit = await commitRepoFiles(published.token.value, published.repo.full_name, files);
+  const liveUrl = form.customDomain ? `https://${form.customDomain}/` : `https://${form.slug}.pages.dev/`;
+
+  return c.json({
+    ok: true,
+    repo: {
+      full_name: published.repo.full_name,
+      html_url: published.repo.html_url,
+      default_branch: published.repo.default_branch || "main",
+    },
+    commit,
+    liveUrl,
+    actionsUrl: `${published.repo.html_url}/actions`,
+    secrets: secrets.map((result) => ({ name: result.name, status: "set", source: result.source })),
+  });
+});
+
 app.all("/api/proxy", async (c) => {
   const session = requireSession(c);
   const target = c.req.query("target");
@@ -387,7 +467,7 @@ app.all("/api/proxy", async (c) => {
 
 // Platform-native private KB store (D1): orgs, RBAC, KBs, pages, proposals.
 registerKbRoutes(app);
-// Access-controlled rendering of private KBs (members only).
+// Access-controlled rendering of private KBs (members or allowed email domains).
 registerPublishRoutes(app);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
@@ -522,6 +602,181 @@ async function githubOAuthCredentialDiagnostic(clientId: string | undefined, cli
     providerError: tokenJson.error || null,
     providerErrorDescription: tokenJson.error_description || null,
   };
+}
+
+async function primaryGitHubEmail(accessToken: string): Promise<string | undefined> {
+  const res = await fetch("https://api.github.com/user/emails", {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "prodocstore-api",
+    },
+  });
+  if (!res.ok) return undefined;
+  const emails = await res.json<GitHubEmail[]>().catch(() => []);
+  return emails.find((email) => email.primary && email.verified)?.email
+    || emails.find((email) => email.verified)?.email;
+}
+
+function validatePublishBody(input: PublishFormInput | undefined) {
+  const form = input ?? {};
+  const title = stringField(form.title).trim();
+  const slug = stringField(form.slug).trim().toLowerCase();
+  const owner = stringField(form.owner).trim();
+  const customDomain = normalizeDomain(stringField(form.customDomain));
+  const visibility = stringField(form.visibility);
+  const prompt = stringField(form.prompt).trim();
+
+  if (!title) throwJson(400, "Title is required.");
+  if (!/^[a-z][a-z0-9-]{1,57}$/.test(slug)) throwJson(400, "Slug must be lowercase letters, numbers, and hyphens.");
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner)) throwJson(400, "GitHub owner must be a valid user or organization name.");
+  if (customDomain && !isValidHostname(customDomain)) throwJson(400, "Custom domain must be a valid hostname.");
+  if (visibility !== "public" && visibility !== "private") throwJson(400, "Visibility must be public or private.");
+  if (!prompt) throwJson(400, "Prompt is required.");
+
+  return { title, slug, owner, customDomain, visibility, prompt };
+}
+
+function validateRepoFiles(input: RepoFileInput[] | undefined): Array<{ path: string; content: string }> {
+  if (!Array.isArray(input) || input.length === 0) throwJson(400, "Files are required.");
+  const files = input.map((file) => ({
+    path: stringField(file.path).replace(/^\/+/, ""),
+    content: stringField(file.content),
+  }));
+  for (const file of files) {
+    if (!isSafeRepoPath(file.path)) throwJson(400, `Unsafe repo path: ${file.path || "(empty)"}`);
+    if (file.path.startsWith("site/") || file.path.endsWith(".html")) throwJson(400, `Generated site output is not allowed: ${file.path}`);
+  }
+  const paths = new Set(files.map((file) => file.path));
+  for (const required of [".github/workflows/deploy.yml", "zensical.toml", "docs/index.md"]) {
+    if (!paths.has(required)) throwJson(400, `Missing required file: ${required}`);
+  }
+  if (![...paths].some((path) => path.startsWith("docs/") && path.endsWith(".md"))) throwJson(400, "At least one Markdown file under docs/ is required.");
+  return files;
+}
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeDomain(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/\.$/, "");
+}
+
+function isValidHostname(value: string): boolean {
+  return /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(value);
+}
+
+function isSafeRepoPath(value: string): boolean {
+  if (!value || value.length > 240 || value.startsWith("/") || value.includes("\\")) return false;
+  return value.split("/").every((part) => part && part !== "." && part !== "..");
+}
+
+async function publishRepoWithTokens(tokens: GitHubToken[], form: ReturnType<typeof validatePublishBody>, files: Array<{ path: string; content: string }>): Promise<{ token: GitHubToken; repo: GitHubRepo }> {
+  const failures: string[] = [];
+  for (const token of tokens) {
+    try {
+      const repo = await createOrFetchGitHubRepo(token.value, form, files.length);
+      return { token, repo };
+    } catch (error) {
+      failures.push(`${token.source}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throwJson(500, `GitHub repository publish setup failed. ${failures.join(" ")}`);
+}
+
+async function createOrFetchGitHubRepo(token: string, form: ReturnType<typeof validatePublishBody>, fileCount: number): Promise<GitHubRepo> {
+  const viewer = await githubJsonWithToken<{ login?: string }>(token, "https://api.github.com/user");
+  const isUser = viewer.login?.toLowerCase() === form.owner.toLowerCase();
+  const url = isUser ? "https://api.github.com/user/repos" : `https://api.github.com/orgs/${encodeURIComponent(form.owner)}/repos`;
+  const createRes = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...githubApiHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: form.slug,
+      description: `${form.title} - ProDocStore Zensical knowledge base`,
+      private: form.visibility === "private",
+      auto_init: true,
+      homepage: form.customDomain ? `https://${form.customDomain}/` : `https://${form.slug}.pages.dev/`,
+    }),
+  });
+  if (createRes.ok) return createRes.json<GitHubRepo>();
+  if (createRes.status !== 422) throw new Error(`repo create failed: ${createRes.status} ${await githubErrorDetail(createRes)}`);
+
+  const repo = await githubJsonWithToken<GitHubRepo>(token, `https://api.github.com/repos/${encodeURIComponentRepo(`${form.owner}/${form.slug}`)}`);
+  if (repo.full_name?.toLowerCase() !== `${form.owner}/${form.slug}`.toLowerCase()) throw new Error("GitHub returned the wrong repository.");
+  console.log(`Publishing ${fileCount} file(s) to existing repo ${repo.full_name}.`);
+  return repo;
+}
+
+async function commitRepoFiles(token: string, repo: string, files: Array<{ path: string; content: string }>): Promise<{ sha: string; html_url: string }> {
+  const repoMeta = await githubJsonWithToken<GitHubRepo>(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}`);
+  const branch = repoMeta.default_branch || "main";
+  const ref = await githubJsonWithToken<GitHubRef>(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/git/ref/heads/${encodeURIComponent(branch)}`);
+  const headSha = ref.object?.sha;
+  if (!headSha) throw new Error(`GitHub ref heads/${branch} has no sha.`);
+  const headCommit = await githubJsonWithToken<GitHubCommit>(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/git/commits/${encodeURIComponent(headSha)}`);
+  const baseTree = headCommit.tree?.sha;
+  if (!baseTree) throw new Error(`GitHub commit ${headSha} has no tree sha.`);
+
+  const tree = await githubFetchJson<GitHubTree>(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/git/trees`, {
+    method: "POST",
+    body: JSON.stringify({
+      base_tree: baseTree,
+      tree: files.map((file) => ({
+        path: file.path,
+        mode: "100644",
+        type: "blob",
+        content: file.content,
+      })),
+    }),
+  });
+  if (!tree.sha) throw new Error("GitHub create tree returned no sha.");
+
+  const commit = await githubFetchJson<GitHubCommit & { html_url?: string }>(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/git/commits`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: "Publish ProDocStore knowledge base",
+      tree: tree.sha,
+      parents: [headSha],
+    }),
+  });
+  if (!commit.sha) throw new Error("GitHub create commit returned no sha.");
+
+  await githubFetchJson(token, `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/git/refs/heads/${encodeURIComponent(branch)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sha: commit.sha }),
+  });
+
+  return {
+    sha: commit.sha,
+    html_url: `https://github.com/${repo}/commit/${commit.sha}`,
+  };
+}
+
+async function githubJsonWithToken<T>(token: string, url: string): Promise<T> {
+  return githubFetchJson<T>(token, url, { method: "GET" });
+}
+
+async function githubFetchJson<T>(token: string, url: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      ...githubApiHeaders(token),
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await githubErrorDetail(res)}`);
+  return res.json<T>();
 }
 
 function safeNext(input: string | undefined, fallback: string): string {

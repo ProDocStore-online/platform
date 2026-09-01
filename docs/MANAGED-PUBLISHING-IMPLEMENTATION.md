@@ -165,6 +165,13 @@ Acceptance:
 - The job can build source without Cloudflare deployment.
 - Failed builds are visible in the UI with actionable logs.
 
+Interim API-owned publish transaction:
+
+- Before full webhook/job publishing, the console should call a platform API endpoint for the current GitHub-backed publish path.
+- The API creates or finds the GitHub repo, installs Cloudflare deploy secrets, and commits the complete KB source in one Git commit.
+- This removes the browser from multi-step GitHub orchestration and prevents first-run workflow failures caused by committing before deploy secrets exist.
+- This is still client-hosted execution because GitHub Actions performs the build/deploy from the KB repo.
+
 ### Phase 4: Add Managed Hosting
 
 Goal: ProDocStore publishes without customer Cloudflare secrets.
@@ -233,13 +240,16 @@ Started:
 - Rejected Git-connected Cloudflare Pages projects because ProDocStore deploys by direct upload.
 - Updated Access policy sync so ProDocStore manages only its own policies and preserves manual tenant policies.
 - Added tests for manual policy preservation and update-failure behavior.
+- Added an API-owned GitHub publish transaction at `/api/publish/github`.
+- Updated the editor console to publish through the API endpoint instead of creating repos, installing secrets, and writing files directly from the browser.
+- The API now writes all KB files with one Git tree/commit/ref update rather than one commit per file.
 
 Still needed before this is production-complete:
 
-- Keep the reusable publisher pinned through a stable release tag such as `publisher-v1` instead of relying on `@main`.
+- Define the release process for moving `publisher-v1` after publisher changes are validated.
 - Add generated-workflow fixture tests for public/private/custom-domain/raw-Access cases.
 - Port the fuller post-deploy verifier and rollback behavior from the GlassDocs publisher.
-- Move publish orchestration from the browser into the API Worker once the current dirty API work is isolated.
+- Add GitHub webhook-driven publish jobs so a later push to the repo is visible in the ProDocStore console.
 - Build the managed hosting path so customer repos no longer need Cloudflare secrets by default.
 
 ## Risks

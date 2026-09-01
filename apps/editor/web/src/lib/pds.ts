@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { PublishForm, RepoFile } from '../types'
 
 export interface User {
   id: string
@@ -120,6 +121,19 @@ export const pds = {
       return apiJson('/api/github/deploy-secrets', {
         method: 'POST',
         body: JSON.stringify({ repo }),
+      })
+    },
+    publishGitHub(form: PublishForm, files: RepoFile[]): Promise<{
+      ok: boolean
+      repo: { full_name: string; html_url: string; default_branch: string }
+      commit: { sha: string; html_url: string }
+      liveUrl: string
+      actionsUrl: string
+      secrets: Array<{ name: string; status: string; source: string }>
+    }> {
+      return apiJson('/api/publish/github', {
+        method: 'POST',
+        body: JSON.stringify({ form, files }),
       })
     },
   },

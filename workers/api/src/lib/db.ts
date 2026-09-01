@@ -8,7 +8,7 @@ export function roleAtLeast(role: Role | null, min: Role): boolean {
 }
 
 export interface Org { id: string; slug: string; name: string; plan: string; seats: number; created_by: string; created_at: number }
-export interface KnowledgeBase { id: string; org_id: string; slug: string; title: string; description: string | null; visibility: string; custom_domain: string | null; created_by: string; created_at: number; updated_at: number }
+export interface KnowledgeBase { id: string; org_id: string; slug: string; title: string; description: string | null; visibility: string; custom_domain: string | null; access_email_domains: string; access_allowed_emails: string; created_by: string; created_at: number; updated_at: number }
 export interface Page { id: string; kb_id: string; path: string; title: string | null; content: string; updated_by: string | null; updated_at: number }
 export interface Proposal { id: string; kb_id: string; page_id: string; status: string; summary: string | null; rationale: string | null; base_content: string; content: string; origin: string; created_by: string; created_at: number; decided_by: string | null; decided_at: number | null }
 
@@ -49,16 +49,37 @@ export async function getRole(db: D1Database, orgId: string, userId: string): Pr
   return row?.role ?? null;
 }
 
-export async function createKb(db: D1Database, input: { orgId: string; slug: string; title: string; description?: string; userId: string }): Promise<KnowledgeBase> {
+export async function createKb(db: D1Database, input: { orgId: string; slug: string; title: string; description?: string; accessEmailDomains?: string; accessAllowedEmails?: string; userId: string }): Promise<KnowledgeBase> {
   const kb: KnowledgeBase = {
     id: uuid(), org_id: input.orgId, slug: input.slug, title: input.title, description: input.description ?? null,
-    visibility: "private", custom_domain: null, created_by: input.userId, created_at: now(), updated_at: now(),
+    visibility: "private", custom_domain: null, access_email_domains: input.accessEmailDomains ?? "", access_allowed_emails: input.accessAllowedEmails ?? "",
+    created_by: input.userId, created_at: now(), updated_at: now(),
   };
   await db.prepare(
-    `INSERT INTO knowledge_bases (id, org_id, slug, title, description, visibility, custom_domain, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'private', NULL, ?, ?, ?)`,
-  ).bind(kb.id, kb.org_id, kb.slug, kb.title, kb.description, kb.created_by, kb.created_at, kb.updated_at).run();
+    `INSERT INTO knowledge_bases (id, org_id, slug, title, description, visibility, custom_domain, access_email_domains, access_allowed_emails, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'private', NULL, ?, ?, ?, ?, ?)`,
+  ).bind(kb.id, kb.org_id, kb.slug, kb.title, kb.description, kb.access_email_domains, kb.access_allowed_emails, kb.created_by, kb.created_at, kb.updated_at).run();
   return kb;
+}
+
+export async function updateKbAccess(db: D1Database, input: { kbId: string; title?: string; description?: string | null; visibility?: string; accessEmailDomains?: string; accessAllowedEmails?: string }): Promise<KnowledgeBase | null> {
+  const existing = await getKb(db, input.kbId);
+  if (!existing) return null;
+  const ts = now();
+  await db.prepare(
+    `UPDATE knowledge_bases
+     SET title = ?, description = ?, visibility = ?, access_email_domains = ?, access_allowed_emails = ?, updated_at = ?
+     WHERE id = ?`,
+  ).bind(
+    input.title ?? existing.title,
+    input.description ?? existing.description,
+    input.visibility ?? existing.visibility,
+    input.accessEmailDomains ?? existing.access_email_domains,
+    input.accessAllowedEmails ?? existing.access_allowed_emails,
+    ts,
+    input.kbId,
+  ).run();
+  return getKb(db, input.kbId);
 }
 
 export async function listKbs(db: D1Database, orgId: string): Promise<KnowledgeBase[]> {
