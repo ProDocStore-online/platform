@@ -243,6 +243,8 @@ Started:
 - Added an API-owned GitHub publish transaction at `/api/publish/github`.
 - Updated the editor console to publish through the API endpoint instead of creating repos, installing secrets, and writing files directly from the browser.
 - The API now writes all KB files with one Git tree/commit/ref update rather than one commit per file.
+- Added API route tests for the GitHub publish transaction, including deploy-secret ordering and rejection of generated site output.
+- Deployment workflows now run service tests before deploying the API, editor, and MCP workers/pages.
 
 Still needed before this is production-complete:
 
