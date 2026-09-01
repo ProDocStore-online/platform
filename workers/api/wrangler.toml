@@ -18,6 +18,7 @@ GITHUB_ORG = "ProDocStore-online"
 # wrangler secret put GITHUB_CLIENT_ID
 # wrangler secret put GITHUB_CLIENT_SECRET
 # wrangler secret put GITHUB_TOKEN
+# wrangler secret put GITHUB_WEBHOOK_SECRET
 # wrangler secret put GOOGLE_CLIENT_ID
 # wrangler secret put GOOGLE_CLIENT_SECRET
 # wrangler secret put PDS_KEY_ENCRYPTION_KEY

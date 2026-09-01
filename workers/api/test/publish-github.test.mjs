@@ -312,6 +312,8 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
     if (url.endsWith("/git/trees") && method === "POST") return jsonResponse({ sha: "newtree" });
     if (url.endsWith("/git/commits") && method === "POST") return jsonResponse({ sha: "newcommit" });
     if (url.endsWith("/git/refs/heads/main") && method === "PATCH") return jsonResponse({});
+    if (url.endsWith("/hooks?per_page=100") && method === "GET") return jsonResponse([]);
+    if (url.endsWith("/hooks") && method === "POST") return jsonResponse({ id: 123 });
 
     return jsonResponse({ message: `Unhandled ${method} ${url}` }, { status: 500 });
   };
@@ -339,6 +341,12 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
     assert.equal(data.publishTarget.mode, "client-hosted");
     assert.equal(data.publishJob.status, "submitted");
     assert.equal(data.publishJob.commitSha, "newcommit");
+    assert.deepEqual(data.webhook, {
+      configured: true,
+      status: "created",
+      source: "platform",
+      id: 123,
+    });
 
     assert.equal(testEnv.DB.records.publishTargets.length, 1);
     assert.equal(testEnv.DB.records.publishTargets[0].local_draft_id, "draft-1");
@@ -368,6 +376,15 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
     assert.ok(secretWrites.some((call) => call.url.endsWith("/CLOUDFLARE_API_TOKEN")));
     assert.ok(secretWrites.some((call) => call.url.endsWith("/CLOUDFLARE_ACCOUNT_ID")));
 
+    const hookCreates = calls.filter((call) => call.method === "POST" && call.url.endsWith("/hooks"));
+    assert.equal(hookCreates.length, 1);
+    const hookPayload = JSON.parse(hookCreates[0].body);
+    assert.equal(hookPayload.active, true);
+    assert.deepEqual(hookPayload.events, ["push"]);
+    assert.equal(hookPayload.config.url, "https://api.prodocstore.online/api/webhooks/github");
+    assert.equal(hookPayload.config.content_type, "json");
+    assert.equal(hookPayload.config.secret, "webhook-secret");
+
     const treeCall = calls.find((call) => call.method === "POST" && call.url.endsWith("/git/trees"));
     assert.ok(treeCall, "expected one git tree creation");
     const treePayload = JSON.parse(treeCall.body);
@@ -378,6 +395,71 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
     const firstCommitWrite = calls.findIndex((call) => call.method === "POST" && call.url.endsWith("/git/trees"));
     assert.ok(firstSecretWrite >= 0 && firstCommitWrite > firstSecretWrite, "deploy secrets should be written before committing workflow files");
     assert.equal(calls.filter((call) => call.method === "PATCH" && call.url.endsWith("/git/refs/heads/main")).length, 1);
+  } finally {
+    cleanup();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /api/publish/github refreshes an existing GitHub push webhook", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input.url;
+    const method = init.method || "GET";
+    const body = typeof init.body === "string" ? init.body : "";
+    calls.push({ method, url, body });
+
+    if (url === "https://api.github.com/user") return jsonResponse({ login: "ProDocStore-online" });
+    if (url === "https://api.github.com/user/repos" && method === "POST") {
+      return jsonResponse({ full_name: "ProDocStore-online/customer-kb", html_url: "https://github.com/ProDocStore-online/customer-kb", default_branch: "main" });
+    }
+    if (url.endsWith("/actions/secrets/public-key") && method === "GET") {
+      return jsonResponse({ key: Buffer.alloc(32).toString("base64"), key_id: "key1" });
+    }
+    if (url.includes("/actions/secrets/") && method === "PUT") return jsonResponse({});
+    if (url === "https://api.github.com/repos/ProDocStore-online/customer-kb" && method === "GET") {
+      return jsonResponse({ full_name: "ProDocStore-online/customer-kb", html_url: "https://github.com/ProDocStore-online/customer-kb", default_branch: "main" });
+    }
+    if (url.endsWith("/git/ref/heads/main") && method === "GET") return jsonResponse({ object: { sha: "headsha" } });
+    if (url.endsWith("/git/commits/headsha") && method === "GET") return jsonResponse({ sha: "headsha", tree: { sha: "basetree" } });
+    if (url.endsWith("/git/trees") && method === "POST") return jsonResponse({ sha: "newtree" });
+    if (url.endsWith("/git/commits") && method === "POST") return jsonResponse({ sha: "newcommit" });
+    if (url.endsWith("/git/refs/heads/main") && method === "PATCH") return jsonResponse({});
+    if (url.endsWith("/hooks?per_page=100") && method === "GET") {
+      return jsonResponse([{ id: 456, active: false, events: ["issues"], config: { url: "https://api.prodocstore.online/api/webhooks/github" } }]);
+    }
+    if (url.endsWith("/hooks/456") && method === "PATCH") return jsonResponse({ id: 456 });
+
+    return jsonResponse({ message: `Unhandled ${method} ${url}` }, { status: 500 });
+  };
+
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/publish/github", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "pds_session=s1",
+        },
+        body: JSON.stringify({ draftId: "draft-1", form: form(), files: repoFiles() }),
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.deepEqual(data.webhook, {
+      configured: true,
+      status: "updated",
+      source: "platform",
+      id: 456,
+    });
+    assert.equal(calls.filter((call) => call.method === "POST" && call.url.endsWith("/hooks")).length, 0);
+    const hookUpdates = calls.filter((call) => call.method === "PATCH" && call.url.endsWith("/hooks/456"));
+    assert.equal(hookUpdates.length, 1);
+    assert.equal(JSON.parse(hookUpdates[0].body).config.secret, "webhook-secret");
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;

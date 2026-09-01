@@ -82,6 +82,15 @@ interface GitHubTree {
   sha?: string;
 }
 
+interface GitHubHook {
+  id?: number;
+  active?: boolean;
+  events?: string[];
+  config?: {
+    url?: string;
+  };
+}
+
 interface GitHubPushWebhook {
   ref?: string;
   after?: string;
@@ -456,6 +465,10 @@ app.post("/api/publish/github", async (c) => {
     actionsUrl,
     message: "GitHub Actions deployment submitted.",
   });
+  const webhook = await ensureGitHubRepoWebhook(tokens, published.repo.full_name, {
+    secret: c.env.GITHUB_WEBHOOK_SECRET,
+    url: new URL("/api/webhooks/github", c.req.url).toString(),
+  });
 
   return c.json({
     ok: true,
@@ -479,6 +492,7 @@ app.post("/api/publish/github", async (c) => {
       commitSha: publishJob.github_commit_sha,
       createdAt: publishJob.created_at,
     },
+    webhook,
     secrets: secrets.map((result) => ({ name: result.name, status: "set", source: result.source })),
   });
 });
@@ -1051,6 +1065,74 @@ async function putGitHubRepoSecretWithToken(token: string, repo: string, name: s
       throw new RetryableGitHubError(putRes.status, await githubErrorDetail(putRes));
     }
   });
+}
+
+async function ensureGitHubRepoWebhook(
+  tokens: GitHubToken[],
+  repo: string,
+  input: { secret?: string; url: string },
+): Promise<{ configured: boolean; status: "created" | "updated" | "skipped"; source?: GitHubToken["source"]; id?: number; message?: string }> {
+  if (!input.secret) {
+    return {
+      configured: false,
+      status: "skipped",
+      message: "GITHUB_WEBHOOK_SECRET is not configured on the API Worker.",
+    };
+  }
+  const secret = input.secret;
+  const failures: string[] = [];
+  for (const token of tokens) {
+    try {
+      const result = await ensureGitHubRepoWebhookWithToken(token.value, repo, { secret, url: input.url });
+      return { configured: true, source: token.source, ...result };
+    } catch (error) {
+      failures.push(`${token.source}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throwJson(500, `GitHub webhook setup failed for ${repo}. ${failures.join(" ")}`);
+}
+
+async function ensureGitHubRepoWebhookWithToken(
+  token: string,
+  repo: string,
+  input: { secret: string; url: string },
+): Promise<{ status: "created" | "updated"; id?: number }> {
+  const hooks = await githubJsonWithToken<GitHubHook[]>(
+    token,
+    `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/hooks?per_page=100`,
+  );
+  const existing = hooks.find((hook) => hook.config?.url === input.url);
+  const payload = {
+    name: "web",
+    active: true,
+    events: ["push"],
+    config: {
+      url: input.url,
+      content_type: "json",
+      secret: input.secret,
+      insecure_ssl: "0",
+    },
+  };
+  if (existing?.id) {
+    const updated = await githubFetchJson<GitHubHook>(
+      token,
+      `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/hooks/${encodeURIComponent(String(existing.id))}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    );
+    return { status: "updated", id: updated.id ?? existing.id };
+  }
+  const created = await githubFetchJson<GitHubHook>(
+    token,
+    `https://api.github.com/repos/${encodeURIComponentRepo(repo)}/hooks`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  return { status: "created", id: created.id };
 }
 
 async function cloudflareReadiness(env: Env) {
