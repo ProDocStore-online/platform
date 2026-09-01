@@ -19,7 +19,7 @@ Platform-native foundation is live on `prodocstore-api`:
 - **API** (`workers/api/src/routes/kb.ts`): org / KB / page / proposal endpoints, role-gated
   (owner > admin > editor > reviewer > viewer).
 - **Access-controlled publishing** (`workers/api/src/routes/publish.ts`): private KBs render as
-  HTML at `/kb/:kbId` behind org membership.
+  HTML at `/kb/:kbId` behind org membership or allowed verified email domains/emails.
 
 Next: console wired to the D1 proposal/approve flow → org-scoped MCP → Stripe per-seat billing +
 AI-quota metering. See `STRATEGY.md` build order.
@@ -59,7 +59,8 @@ brand/                Brand assets
 Each KB is a row in D1 scoped to an org, with its pages stored in D1 (markdown inline for the
 MVP; large assets move to R2). There is **no GitHub repo per KB** — access control, versioning,
 and the review flow are owned by the platform, which is exactly what ProDocStore sells. KBs render
-behind org-membership auth at `/kb/:kbId`, and later at `<org>.prodocstore.online` / custom domains.
+behind PDOCS auth at `/kb/:kbId`; private KBs allow org members plus verified email-domain/email
+viewers, and later at `<org>.prodocstore.online` / custom domains.
 
 ## Console
 
@@ -118,7 +119,9 @@ GitHub free organizations expose org Actions secrets only to public repos. If Pr
 
 The Cloudflare token needs `Workers Scripts:Edit`, `Workers Routes:Edit`, `Workers KV Storage:Edit`, `Cloudflare Pages:Edit`, `DNS:Edit`, and account read/settings access for the `prodocstore.online` zone.
 
-Private/customer KB publishing also needs Cloudflare Zero Trust Access application/policy edit permissions and Access Identity Provider read/write permissions. ProDocStore defaults private KBs to closed access, forces plain email-domain KBs through One-time PIN login, and then opens them through explicit policy rules such as allowed email addresses or email domains.
+Platform-native private/customer KB publishing is enforced by the PDOCS API worker against D1 KB metadata. Private KBs default to closed access, then allow signed-in viewers whose verified OAuth email matches the KB's `access_email_domains` or `access_allowed_emails` fields. Org membership remains the source of edit/review/admin permissions.
+
+Cloudflare Zero Trust Access is not required for standard PDOCS private KB publishing. It is only needed for a separate custom-domain/edge-access deployment path.
 
 ## Local Commands
 
