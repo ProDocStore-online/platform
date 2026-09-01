@@ -300,7 +300,7 @@ jobs:
 
       - name: Sync Cloudflare Access policies
         if: env.PROTECT_SITE == 'true'
-        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@publisher-v2
+        uses: ProDocStore-online/platform/.github/actions/sync-access-policies@publisher-v3
         with:
           app-id: ${{ steps.access.outputs.app_id }}
           cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -318,7 +318,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Verify Cloudflare Pages exposure
-        uses: ProDocStore-online/platform/.github/actions/verify-pages-access@publisher-v2
+        uses: ProDocStore-online/platform/.github/actions/verify-pages-access@publisher-v3
         with:
           project-name: ${{ inputs.project-name }}
           pages-domain: ${{ steps.pages.outputs.domain }}
@@ -332,3 +332,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify custom domain exposure
+        if: inputs.custom-domain != ''
+        uses: ProDocStore-online/platform/.github/actions/verify-pages-access@publisher-v3
+        with:
+          project-name: ${{ inputs.project-name }}
+          pages-domain: ${{ inputs.custom-domain }}
+          protect-site: ${{ env.PROTECT_SITE }}
+          cf-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cf-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

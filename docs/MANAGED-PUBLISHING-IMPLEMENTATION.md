@@ -87,7 +87,7 @@ The Worker/R2 option avoids one Pages project per KB and removes the 100 Pages p
 Flow:
 
 1. Generated repo contains `.github/workflows/deploy.yml`.
-2. Workflow calls `ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@publisher-v2`.
+2. Workflow calls `ProDocStore-online/platform/.github/workflows/deploy-zensical-kb.yml@publisher-v3`.
 3. Customer stores Cloudflare secrets in their repo or org.
 4. Reusable publisher builds Zensical, manages Access, deploys to Pages, and verifies the result.
 
