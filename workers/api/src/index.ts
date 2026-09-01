@@ -6,7 +6,7 @@ import sealedbox from "tweetnacl-sealedbox-js";
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
 import { registerPublishRoutes } from "./routes/publish";
-import { createPublishJob, listPublishJobsForDraft, upsertPublishTarget } from "./lib/db";
+import { createPublishJob, getPublishTargetByGitHubRepo, listPublishJobsForDraft, upsertPublishTarget } from "./lib/db";
 
 interface GitHubUser {
   id: number;
@@ -82,6 +82,17 @@ interface GitHubTree {
   sha?: string;
 }
 
+interface GitHubPushWebhook {
+  ref?: string;
+  after?: string;
+  repository?: {
+    full_name?: string;
+  };
+  head_commit?: {
+    url?: string;
+  } | null;
+}
+
 const SESSION_COOKIE = "pds_session";
 const STATE_PREFIX = "oauth_state:";
 const SESSION_PREFIX = "session:";
@@ -122,8 +133,10 @@ app.get("/api/health", (c) => c.json({
   service: "prodocstore-api",
   github: {
     oauthConfigured: Boolean(c.env.GITHUB_CLIENT_ID && c.env.GITHUB_CLIENT_SECRET),
+    webhookConfigured: Boolean(c.env.GITHUB_WEBHOOK_SECRET),
     clientId: c.env.GITHUB_CLIENT_ID || null,
     callbackUrl: new URL("/auth/github/callback", c.req.url).toString(),
+    webhookUrl: new URL("/api/webhooks/github", c.req.url).toString(),
   },
   google: {
     oauthConfigured: Boolean(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
@@ -498,6 +511,61 @@ app.get("/api/publish/jobs", async (c) => {
   });
 });
 
+app.post("/api/webhooks/github", async (c) => {
+  requireSecret(c.env.GITHUB_WEBHOOK_SECRET, "GITHUB_WEBHOOK_SECRET");
+  const body = await c.req.text();
+  const signature = c.req.header("X-Hub-Signature-256") || "";
+  if (!(await verifyGitHubWebhookSignature(c.env.GITHUB_WEBHOOK_SECRET!, body, signature))) {
+    return c.json({ error: "Invalid GitHub webhook signature" }, 401);
+  }
+
+  const event = c.req.header("X-GitHub-Event") || "";
+  const delivery = c.req.header("X-GitHub-Delivery") || "";
+  if (event !== "push") return c.json({ ok: true, ignored: "unsupported-event", event, delivery });
+
+  const payload = parseJsonBody<GitHubPushWebhook>(body);
+  const repoFullName = payload.repository?.full_name || "";
+  const commitSha = payload.after || "";
+  const ref = payload.ref || "";
+  if (!repoFullName || !commitSha || !ref) return c.json({ error: "Invalid GitHub push payload" }, 400);
+  if (/^0{40}$/.test(commitSha)) return c.json({ ok: true, ignored: "branch-delete", repo: repoFullName, delivery });
+
+  const target = await getPublishTargetByGitHubRepo(c.env.DB, repoFullName);
+  if (!target) return c.json({ ok: true, ignored: "unregistered-repository", repo: repoFullName, delivery });
+  if (ref !== `refs/heads/${target.default_branch}`) {
+    return c.json({ ok: true, ignored: "non-default-branch", repo: repoFullName, ref, defaultBranch: target.default_branch, delivery });
+  }
+
+  const branch = ref.replace(/^refs\/heads\//, "");
+  const commitUrl = payload.head_commit?.url || `https://github.com/${repoFullName}/commit/${commitSha}`;
+  const job = await createPublishJob(c.env.DB, {
+    targetId: target.id,
+    kbId: target.kb_id,
+    userId: target.user_id,
+    source: "webhook",
+    trigger: "push",
+    githubFullName: repoFullName,
+    githubBranch: branch,
+    githubCommitSha: commitSha,
+    githubCommitUrl: commitUrl,
+    liveUrl: target.live_url,
+    actionsUrl: target.actions_url,
+    message: delivery ? `GitHub push webhook ${delivery}` : "GitHub push webhook",
+  });
+
+  return c.json({
+    ok: true,
+    job: {
+      id: job.id,
+      status: job.status,
+      repo: job.github_full_name,
+      branch: job.github_branch,
+      commitSha: job.github_commit_sha,
+      commitUrl: job.github_commit_url,
+    },
+  });
+});
+
 app.all("/api/proxy", async (c) => {
   const session = requireSession(c);
   const target = c.req.query("target");
@@ -864,6 +932,14 @@ function safeNext(input: string | undefined, fallback: string): string {
   }
 }
 
+function parseJsonBody<T>(body: string): T {
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throwJson(400, "Invalid JSON body.");
+  }
+}
+
 function kvKeyFromPath(path: string): string {
   const key = decodeURIComponent(path.replace(/^\/api\/kv\/?/, ""));
   if (!key || key.includes("..") || key.length > 256) throwJson(400, "Invalid key");
@@ -1057,6 +1133,32 @@ async function encryptForGitHub(publicKey: string, value: string): Promise<strin
   return bytesToBase64(sealedbox.seal(valueBytes, keyBytes));
 }
 
+async function verifyGitHubWebhookSignature(secret: string, body: string, signature: string): Promise<boolean> {
+  if (!signature.startsWith("sha256=")) return false;
+  const expected = await signGitHubWebhook(secret, body);
+  return constantTimeEqual(expected, signature);
+}
+
+async function signGitHubWebhook(secret: string, body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  return `sha256=${bytesToHex(new Uint8Array(digest))}`;
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 function githubTokens(env: Env, session: Session): GitHubToken[] {
   const tokens: GitHubToken[] = [];
   if (env.GITHUB_TOKEN) tokens.push({ source: "platform", value: env.GITHUB_TOKEN });
@@ -1142,6 +1244,10 @@ function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function base64ToBytes(value: string): Uint8Array {

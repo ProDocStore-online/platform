@@ -9,6 +9,7 @@ export interface Env {
   GITHUB_ORG: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  GITHUB_WEBHOOK_SECRET?: string;
   GITHUB_TOKEN?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;

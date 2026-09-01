@@ -268,6 +268,9 @@ export async function createPublishJob(db: D1Database, input: {
   targetId: string;
   kbId?: string | null;
   userId: string;
+  source?: string;
+  trigger?: string;
+  status?: string;
   githubFullName: string;
   githubBranch: string;
   githubCommitSha: string;
@@ -282,9 +285,9 @@ export async function createPublishJob(db: D1Database, input: {
     target_id: input.targetId,
     kb_id: input.kbId ?? null,
     user_id: input.userId,
-    source: "api",
-    trigger: "console",
-    status: "submitted",
+    source: input.source ?? "api",
+    trigger: input.trigger ?? "console",
+    status: input.status ?? "submitted",
     github_full_name: input.githubFullName,
     github_branch: input.githubBranch || "main",
     github_commit_sha: input.githubCommitSha,
@@ -300,12 +303,15 @@ export async function createPublishJob(db: D1Database, input: {
     `INSERT INTO publish_jobs (
        id, target_id, kb_id, user_id, source, trigger, status, github_full_name, github_branch,
        github_commit_sha, github_commit_url, live_url, actions_url, message, created_at, updated_at, completed_at
-     ) VALUES (?, ?, ?, ?, 'api', 'console', 'submitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
   ).bind(
     job.id,
     job.target_id,
     job.kb_id,
     job.user_id,
+    job.source,
+    job.trigger,
+    job.status,
     job.github_full_name,
     job.github_branch,
     job.github_commit_sha,
@@ -330,4 +336,9 @@ export async function listPublishJobsForDraft(db: D1Database, input: { userId: s
      LIMIT ?`,
   ).bind(input.userId, input.localDraftId, limit).all<PublishJob & { target_mode: string; target_provider: string }>();
   return results ?? [];
+}
+
+export async function getPublishTargetByGitHubRepo(db: D1Database, githubFullName: string): Promise<PublishTarget | null> {
+  return db.prepare(`SELECT * FROM publish_targets WHERE provider = 'github' AND lower(github_full_name) = lower(?)`)
+    .bind(githubFullName).first<PublishTarget>();
 }

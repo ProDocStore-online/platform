@@ -79,6 +79,7 @@ function env() {
     PUBLIC_BASE_URL: "https://prodocstore.online",
     GITHUB_ORG: "ProDocStore-online",
     GITHUB_TOKEN: "platform-token",
+    GITHUB_WEBHOOK_SECRET: "webhook-secret",
     CLOUDFLARE_API_TOKEN: "cf-token",
     CLOUDFLARE_ACCOUNT_ID: "cf-account",
     PDS_KEY_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
@@ -100,6 +101,9 @@ function fakeDb() {
         async first() {
           if (sql.includes("FROM publish_targets WHERE provider = 'github' AND github_full_name = ?")) {
             return publishTargets.find((target) => target.provider === "github" && target.github_full_name === this.params[0]) ?? null;
+          }
+          if (sql.includes("FROM publish_targets WHERE provider = 'github' AND lower(github_full_name) = lower(?)")) {
+            return publishTargets.find((target) => target.provider === "github" && target.github_full_name.toLowerCase() === String(this.params[0]).toLowerCase()) ?? null;
           }
           throw new Error(`Unhandled D1 first: ${sql}`);
         },
@@ -173,6 +177,9 @@ function fakeDb() {
               targetId,
               kbId,
               userId,
+              source,
+              trigger,
+              status,
               githubFullName,
               githubBranch,
               githubCommitSha,
@@ -188,9 +195,9 @@ function fakeDb() {
               target_id: targetId,
               kb_id: kbId,
               user_id: userId,
-              source: "api",
-              trigger: "console",
-              status: "submitted",
+              source,
+              trigger,
+              status,
               github_full_name: githubFullName,
               github_branch: githubBranch,
               github_commit_sha: githubCommitSha,
@@ -244,6 +251,40 @@ function jsonResponse(body, init = {}) {
     status: init.status ?? 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+async function githubSignature(secret, body) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  return `sha256=${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function publishTarget(overrides = {}) {
+  return {
+    id: "target-1",
+    kb_id: null,
+    local_draft_id: "draft-1",
+    user_id: "github_1",
+    provider: "github",
+    mode: "client-hosted",
+    github_owner: "ProDocStore-online",
+    github_repo: "customer-kb",
+    github_full_name: "ProDocStore-online/customer-kb",
+    default_branch: "main",
+    visibility: "private",
+    live_url: "https://customer-kb.pages.dev/",
+    actions_url: "https://github.com/ProDocStore-online/customer-kb/actions",
+    created_at: Date.now(),
+    updated_at: Date.now(),
+    ...overrides,
+  };
 }
 
 test("POST /api/publish/github creates repo, installs deploy secrets, then commits all files once", async () => {
@@ -340,6 +381,138 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /api/webhooks/github creates a publish job for registered default-branch pushes", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  testEnv.DB.records.publishTargets.push(publishTarget());
+  const body = JSON.stringify({
+    ref: "refs/heads/main",
+    after: "1234567890abcdef1234567890abcdef12345678",
+    repository: { full_name: "ProDocStore-online/customer-kb" },
+    head_commit: { url: "https://github.com/ProDocStore-online/customer-kb/commit/1234567890abcdef1234567890abcdef12345678" },
+  });
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/webhooks/github", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "push",
+          "X-GitHub-Delivery": "delivery-1",
+          "X-Hub-Signature-256": await githubSignature("webhook-secret", body),
+        },
+        body,
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.equal(data.job.status, "submitted");
+    assert.equal(data.job.repo, "ProDocStore-online/customer-kb");
+    assert.equal(data.job.branch, "main");
+    assert.equal(data.job.commitSha, "1234567890abcdef1234567890abcdef12345678");
+    assert.equal(testEnv.DB.records.publishJobs.length, 1);
+    assert.equal(testEnv.DB.records.publishJobs[0].source, "webhook");
+    assert.equal(testEnv.DB.records.publishJobs[0].trigger, "push");
+    assert.equal(testEnv.DB.records.publishJobs[0].message, "GitHub push webhook delivery-1");
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/webhooks/github rejects bad signatures before creating jobs", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  testEnv.DB.records.publishTargets.push(publishTarget());
+  const body = JSON.stringify({
+    ref: "refs/heads/main",
+    after: "1234567890abcdef1234567890abcdef12345678",
+    repository: { full_name: "ProDocStore-online/customer-kb" },
+  });
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/webhooks/github", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "push",
+          "X-GitHub-Delivery": "delivery-2",
+          "X-Hub-Signature-256": "sha256=bad",
+        },
+        body,
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 401);
+    assert.deepEqual(testEnv.DB.records.publishJobs, []);
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/webhooks/github ignores unregistered repositories", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  const body = JSON.stringify({
+    ref: "refs/heads/main",
+    after: "1234567890abcdef1234567890abcdef12345678",
+    repository: { full_name: "ProDocStore-online/unknown-kb" },
+  });
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/webhooks/github", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "push",
+          "X-GitHub-Delivery": "delivery-3",
+          "X-Hub-Signature-256": await githubSignature("webhook-secret", body),
+        },
+        body,
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.equal(data.ignored, "unregistered-repository");
+    assert.deepEqual(testEnv.DB.records.publishJobs, []);
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/webhooks/github ignores non-default branch pushes", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  testEnv.DB.records.publishTargets.push(publishTarget());
+  const body = JSON.stringify({
+    ref: "refs/heads/draft",
+    after: "1234567890abcdef1234567890abcdef12345678",
+    repository: { full_name: "ProDocStore-online/customer-kb" },
+  });
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/webhooks/github", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "push",
+          "X-GitHub-Delivery": "delivery-4",
+          "X-Hub-Signature-256": await githubSignature("webhook-secret", body),
+        },
+        body,
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.equal(data.ignored, "non-default-branch");
+    assert.deepEqual(testEnv.DB.records.publishJobs, []);
+  } finally {
+    cleanup();
   }
 });
 
