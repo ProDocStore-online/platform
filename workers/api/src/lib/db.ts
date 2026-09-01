@@ -264,6 +264,47 @@ export async function upsertPublishTarget(db: D1Database, input: {
   return target;
 }
 
+export async function upsertManagedPublishTarget(db: D1Database, input: {
+  kbId: string;
+  userId: string;
+  visibility: string;
+  liveUrl: string;
+}): Promise<PublishTarget> {
+  const githubFullName = `prodocstore:${input.kbId}`;
+  const existing = await db.prepare(`SELECT * FROM publish_targets WHERE provider = 'prodocstore' AND github_full_name = ?`)
+    .bind(githubFullName).first<PublishTarget>();
+  const ts = now();
+  const id = existing?.id ?? uuid();
+  await db.prepare(
+    `INSERT INTO publish_targets (
+       id, kb_id, local_draft_id, user_id, provider, mode, github_owner, github_repo, github_full_name,
+       default_branch, visibility, live_url, actions_url, created_at, updated_at
+     ) VALUES (?, ?, NULL, ?, 'prodocstore', 'managed', '', ?, ?, 'managed', ?, ?, '', ?, ?)
+     ON CONFLICT(provider, github_full_name) DO UPDATE SET
+       kb_id = excluded.kb_id,
+       user_id = excluded.user_id,
+       mode = excluded.mode,
+       visibility = excluded.visibility,
+       live_url = excluded.live_url,
+       actions_url = excluded.actions_url,
+       updated_at = excluded.updated_at`,
+  ).bind(
+    id,
+    input.kbId,
+    input.userId,
+    input.kbId,
+    githubFullName,
+    input.visibility,
+    input.liveUrl,
+    existing?.created_at ?? ts,
+    ts,
+  ).run();
+  const target = await db.prepare(`SELECT * FROM publish_targets WHERE provider = 'prodocstore' AND github_full_name = ?`)
+    .bind(githubFullName).first<PublishTarget>();
+  if (!target) throw new Error("Managed publish target was not persisted.");
+  return target;
+}
+
 export async function createPublishJob(db: D1Database, input: {
   targetId: string;
   kbId?: string | null;
@@ -278,6 +319,7 @@ export async function createPublishJob(db: D1Database, input: {
   liveUrl: string;
   actionsUrl: string;
   message?: string | null;
+  completedAt?: number | null;
 }): Promise<PublishJob> {
   const ts = now();
   const job: PublishJob = {
@@ -297,13 +339,13 @@ export async function createPublishJob(db: D1Database, input: {
     message: input.message ?? null,
     created_at: ts,
     updated_at: ts,
-    completed_at: null,
+    completed_at: input.completedAt ?? null,
   };
   await db.prepare(
     `INSERT INTO publish_jobs (
        id, target_id, kb_id, user_id, source, trigger, status, github_full_name, github_branch,
        github_commit_sha, github_commit_url, live_url, actions_url, message, created_at, updated_at, completed_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     job.id,
     job.target_id,
@@ -321,6 +363,7 @@ export async function createPublishJob(db: D1Database, input: {
     job.message,
     job.created_at,
     job.updated_at,
+    job.completed_at,
   ).run();
   return job;
 }

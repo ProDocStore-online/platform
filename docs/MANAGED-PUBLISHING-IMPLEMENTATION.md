@@ -253,12 +253,14 @@ Started:
 - `/api/publish/github` now installs or refreshes the repo-level push webhook for each published KB repo.
 - Added tested post-deploy Pages/custom-domain verification with fail-closed rollback behavior for unsafe private deploys.
 - API deploys now fail on schema-dependent commits when D1 migrations cannot be applied in CI.
+- Added first managed publish API slice: `POST /api/kbs/:kbId/publish` records the current D1 KB as a ProDocStore-managed target/job and serves it through the existing access-gated `/kb/:kbId` route without GitHub or Cloudflare Pages calls.
 
 Still needed before this is production-complete:
 
 - Define the release process for future publisher tags after publisher changes are validated.
 - Add generated-workflow fixture tests for public/private/custom-domain/raw-Access cases.
 - Build the managed hosting path so customer repos no longer need Cloudflare secrets by default.
+- Add versioned managed artifacts and pointer-based rollback instead of publishing directly from current D1 page state.
 - Give the API deploy workflow a Cloudflare token with D1 migration permissions so schema deploys do not require manual intervention.
 
 ## Risks

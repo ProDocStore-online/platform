@@ -21,6 +21,8 @@ import {
   applyProposal,
   decideProposal,
   updateKbAccess,
+  upsertManagedPublishTarget,
+  createPublishJob,
 } from "../lib/db";
 import { accessLabel, canViewKb, normalizeAccessList, normalizeDomains } from "../lib/access";
 
@@ -155,6 +157,59 @@ export function registerKbRoutes(app: App): void {
     if (typeof body.content !== "string") return c.json({ error: "content is required" }, 400);
     const page = await upsertPage(c.env.DB, { kbId: kb.id, path: c.req.param("path"), title: body.title, content: body.content, userId: session.user.id });
     return c.json({ page });
+  });
+
+  app.post("/api/kbs/:kbId/publish", async (c) => {
+    const session = await authed(c);
+    const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!roleAtLeast(role, "editor")) return c.json({ error: "editor role required" }, 403);
+    const pages = await listPages(c.env.DB, kb.id);
+    if (!pages.length) return c.json({ error: "at least one page is required before publishing" }, 400);
+
+    const liveUrl = new URL(`/kb/${kb.id}`, c.req.url).toString();
+    const target = await upsertManagedPublishTarget(c.env.DB, {
+      kbId: kb.id,
+      userId: session.user.id,
+      visibility: kb.visibility,
+      liveUrl,
+    });
+    const completedAt = Date.now();
+    const publishJob = await createPublishJob(c.env.DB, {
+      targetId: target.id,
+      kbId: kb.id,
+      userId: session.user.id,
+      source: "api",
+      trigger: "console",
+      status: "completed",
+      githubFullName: target.github_full_name,
+      githubBranch: target.default_branch,
+      githubCommitSha: String(kb.updated_at || completedAt),
+      githubCommitUrl: liveUrl,
+      liveUrl,
+      actionsUrl: "",
+      message: "Managed KB published.",
+      completedAt,
+    });
+
+    return c.json({
+      ok: true,
+      mode: "managed",
+      liveUrl,
+      pageCount: pages.length,
+      publishTarget: {
+        id: target.id,
+        mode: target.mode,
+        provider: target.provider,
+        kbId: target.kb_id,
+      },
+      publishJob: {
+        id: publishJob.id,
+        status: publishJob.status,
+        createdAt: publishJob.created_at,
+        completedAt: publishJob.completed_at,
+      },
+    });
   });
 
   // — Proposals (the review gate) —

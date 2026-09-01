@@ -89,8 +89,11 @@ function env() {
 function fakeDb() {
   const publishTargets = [];
   const publishJobs = [];
+  const knowledgeBases = [];
+  const memberships = [];
+  const pages = [];
   return {
-    records: { publishTargets, publishJobs },
+    records: { publishTargets, publishJobs, knowledgeBases, memberships, pages },
     prepare(sql) {
       return {
         params: [],
@@ -104,6 +107,16 @@ function fakeDb() {
           }
           if (sql.includes("FROM publish_targets WHERE provider = 'github' AND lower(github_full_name) = lower(?)")) {
             return publishTargets.find((target) => target.provider === "github" && target.github_full_name.toLowerCase() === String(this.params[0]).toLowerCase()) ?? null;
+          }
+          if (sql.includes("FROM publish_targets WHERE provider = 'prodocstore' AND github_full_name = ?")) {
+            return publishTargets.find((target) => target.provider === "prodocstore" && target.github_full_name === this.params[0]) ?? null;
+          }
+          if (sql.includes("FROM knowledge_bases WHERE id = ?")) {
+            return knowledgeBases.find((kb) => kb.id === this.params[0]) ?? null;
+          }
+          if (sql.includes("SELECT role FROM memberships WHERE org_id = ? AND user_id = ?")) {
+            const [orgId, userId] = this.params;
+            return memberships.find((membership) => membership.org_id === orgId && membership.user_id === userId) ?? null;
           }
           throw new Error(`Unhandled D1 first: ${sql}`);
         },
@@ -129,10 +142,55 @@ function fakeDb() {
               });
             return { results };
           }
+          if (sql.includes("SELECT id, kb_id, path, title, updated_by, updated_at FROM pages WHERE kb_id = ? ORDER BY path")) {
+            const [kbId] = this.params;
+            return {
+              results: pages
+                .filter((page) => page.kb_id === kbId)
+                .map(({ content, ...page }) => page),
+            };
+          }
           throw new Error(`Unhandled D1 all: ${sql}`);
         },
         async run() {
+          if (sql.includes("INSERT INTO users")) {
+            return { success: true };
+          }
           if (sql.includes("INSERT INTO publish_targets")) {
+            if (sql.includes("'prodocstore'")) {
+              const [
+                id,
+                kbId,
+                userId,
+                githubRepo,
+                githubFullName,
+                visibility,
+                liveUrl,
+                createdAt,
+                updatedAt,
+              ] = this.params;
+              const existing = publishTargets.find((target) => target.provider === "prodocstore" && target.github_full_name === githubFullName);
+              const next = {
+                id: existing?.id ?? id,
+                kb_id: kbId,
+                local_draft_id: null,
+                user_id: userId,
+                provider: "prodocstore",
+                mode: "managed",
+                github_owner: "",
+                github_repo: githubRepo,
+                github_full_name: githubFullName,
+                default_branch: "managed",
+                visibility,
+                live_url: liveUrl,
+                actions_url: "",
+                created_at: existing?.created_at ?? createdAt,
+                updated_at: updatedAt,
+              };
+              if (existing) Object.assign(existing, next);
+              else publishTargets.push(next);
+              return { success: true };
+            }
             const [
               id,
               kbId,
@@ -189,6 +247,7 @@ function fakeDb() {
               message,
               createdAt,
               updatedAt,
+              completedAt,
             ] = this.params;
             publishJobs.push({
               id,
@@ -207,7 +266,7 @@ function fakeDb() {
               message,
               created_at: createdAt,
               updated_at: updatedAt,
-              completed_at: null,
+              completed_at: completedAt,
             });
             return { success: true };
           }
@@ -460,6 +519,72 @@ test("POST /api/publish/github refreshes an existing GitHub push webhook", async
     const hookUpdates = calls.filter((call) => call.method === "PATCH" && call.url.endsWith("/hooks/456"));
     assert.equal(hookUpdates.length, 1);
     assert.equal(JSON.parse(hookUpdates[0].body).config.secret, "webhook-secret");
+  } finally {
+    cleanup();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("POST /api/kbs/:kbId/publish records a managed target without GitHub calls", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("managed publish should not call GitHub or Cloudflare");
+  };
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  testEnv.DB.records.knowledgeBases.push({
+    id: "kb_1",
+    org_id: "org_1",
+    slug: "ops",
+    title: "Ops KB",
+    description: null,
+    visibility: "private",
+    custom_domain: null,
+    access_email_domains: "ozai.digital",
+    access_allowed_emails: "",
+    created_by: "github_1",
+    created_at: 1760000000000,
+    updated_at: 1760000001000,
+  });
+  testEnv.DB.records.memberships.push({ org_id: "org_1", user_id: "github_1", role: "editor" });
+  testEnv.DB.records.pages.push({
+    id: "page_1",
+    kb_id: "kb_1",
+    path: "docs/index.md",
+    title: "Home",
+    content: "# Ops KB\n",
+    updated_by: "github_1",
+    updated_at: 1760000001000,
+  });
+  try {
+    const response = await app.fetch(
+      new Request("https://api.prodocstore.online/api/kbs/kb_1/publish", {
+        method: "POST",
+        headers: { Cookie: "pds_session=s1" },
+      }),
+      testEnv,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.equal(data.mode, "managed");
+    assert.equal(data.liveUrl, "https://api.prodocstore.online/kb/kb_1");
+    assert.equal(data.pageCount, 1);
+    assert.equal(data.publishTarget.mode, "managed");
+    assert.equal(data.publishTarget.provider, "prodocstore");
+    assert.equal(data.publishTarget.kbId, "kb_1");
+    assert.equal(data.publishJob.status, "completed");
+    assert.ok(data.publishJob.completedAt);
+
+    assert.equal(testEnv.DB.records.publishTargets.length, 1);
+    assert.equal(testEnv.DB.records.publishTargets[0].provider, "prodocstore");
+    assert.equal(testEnv.DB.records.publishTargets[0].mode, "managed");
+    assert.equal(testEnv.DB.records.publishTargets[0].github_full_name, "prodocstore:kb_1");
+    assert.equal(testEnv.DB.records.publishTargets[0].live_url, "https://api.prodocstore.online/kb/kb_1");
+    assert.equal(testEnv.DB.records.publishJobs.length, 1);
+    assert.equal(testEnv.DB.records.publishJobs[0].status, "completed");
+    assert.equal(testEnv.DB.records.publishJobs[0].source, "api");
+    assert.equal(testEnv.DB.records.publishJobs[0].trigger, "console");
+    assert.equal(testEnv.DB.records.publishJobs[0].completed_at, data.publishJob.completedAt);
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;
