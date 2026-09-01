@@ -245,6 +245,10 @@ Started:
 - The API now writes all KB files with one Git tree/commit/ref update rather than one commit per file.
 - Added API route tests for the GitHub publish transaction, including deploy-secret ordering and rejection of generated site output.
 - Deployment workflows now run service tests before deploying the API, editor, and MCP workers/pages.
+- Added D1 `publish_targets` and `publish_jobs` tables for durable GitHub-backed publishing state.
+- `/api/publish/github` now records the submitted client-hosted publish target and commit-backed publish job.
+- `/api/publish/jobs?draftId=...` exposes submitted publish jobs for console polling/status UI.
+- The editor now stores and displays the latest commit, GitHub Actions URL, and publish job id for published KB drafts.
 
 Still needed before this is production-complete:
 
@@ -253,6 +257,7 @@ Still needed before this is production-complete:
 - Port the fuller post-deploy verifier and rollback behavior from the GlassDocs publisher.
 - Add GitHub webhook-driven publish jobs so a later push to the repo is visible in the ProDocStore console.
 - Build the managed hosting path so customer repos no longer need Cloudflare secrets by default.
+- Give the API deploy workflow a Cloudflare token with D1 migration permissions, or keep applying migrations manually before schema-dependent deploys.
 
 ## Risks
 
