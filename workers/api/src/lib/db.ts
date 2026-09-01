@@ -11,6 +11,42 @@ export interface Org { id: string; slug: string; name: string; plan: string; sea
 export interface KnowledgeBase { id: string; org_id: string; slug: string; title: string; description: string | null; visibility: string; custom_domain: string | null; access_email_domains: string; access_allowed_emails: string; created_by: string; created_at: number; updated_at: number }
 export interface Page { id: string; kb_id: string; path: string; title: string | null; content: string; updated_by: string | null; updated_at: number }
 export interface Proposal { id: string; kb_id: string; page_id: string; status: string; summary: string | null; rationale: string | null; base_content: string; content: string; origin: string; created_by: string; created_at: number; decided_by: string | null; decided_at: number | null }
+export interface PublishTarget {
+  id: string;
+  kb_id: string | null;
+  local_draft_id: string | null;
+  user_id: string;
+  provider: string;
+  mode: string;
+  github_owner: string;
+  github_repo: string;
+  github_full_name: string;
+  default_branch: string;
+  visibility: string;
+  live_url: string;
+  actions_url: string;
+  created_at: number;
+  updated_at: number;
+}
+export interface PublishJob {
+  id: string;
+  target_id: string;
+  kb_id: string | null;
+  user_id: string;
+  source: string;
+  trigger: string;
+  status: string;
+  github_full_name: string;
+  github_branch: string;
+  github_commit_sha: string;
+  github_commit_url: string;
+  live_url: string;
+  actions_url: string;
+  message: string | null;
+  created_at: number;
+  updated_at: number;
+  completed_at: number | null;
+}
 
 const now = () => Date.now();
 const uuid = () => crypto.randomUUID();
@@ -170,4 +206,115 @@ export async function recordUsage(db: D1Database, input: { orgId: string; userId
     `INSERT INTO ai_usage (id, org_id, user_id, provider, model, prompt_tokens, completion_tokens, total_tokens, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(uuid(), input.orgId, input.userId ?? null, input.provider, input.model, input.prompt, input.completion, input.total, now()).run();
+}
+
+export async function upsertPublishTarget(db: D1Database, input: {
+  kbId?: string | null;
+  localDraftId?: string | null;
+  userId: string;
+  mode: "client-hosted" | "managed";
+  githubOwner: string;
+  githubRepo: string;
+  githubFullName: string;
+  defaultBranch: string;
+  visibility: string;
+  liveUrl: string;
+  actionsUrl: string;
+}): Promise<PublishTarget> {
+  const existing = await db.prepare(`SELECT * FROM publish_targets WHERE provider = 'github' AND github_full_name = ?`)
+    .bind(input.githubFullName).first<PublishTarget>();
+  const ts = now();
+  const id = existing?.id ?? uuid();
+  await db.prepare(
+    `INSERT INTO publish_targets (
+       id, kb_id, local_draft_id, user_id, provider, mode, github_owner, github_repo, github_full_name,
+       default_branch, visibility, live_url, actions_url, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, 'github', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(provider, github_full_name) DO UPDATE SET
+       kb_id = excluded.kb_id,
+       local_draft_id = excluded.local_draft_id,
+       user_id = excluded.user_id,
+       mode = excluded.mode,
+       github_owner = excluded.github_owner,
+       github_repo = excluded.github_repo,
+       default_branch = excluded.default_branch,
+       visibility = excluded.visibility,
+       live_url = excluded.live_url,
+       actions_url = excluded.actions_url,
+       updated_at = excluded.updated_at`,
+  ).bind(
+    id,
+    input.kbId ?? existing?.kb_id ?? null,
+    input.localDraftId ?? existing?.local_draft_id ?? null,
+    input.userId,
+    input.mode,
+    input.githubOwner,
+    input.githubRepo,
+    input.githubFullName,
+    input.defaultBranch || "main",
+    input.visibility,
+    input.liveUrl,
+    input.actionsUrl,
+    existing?.created_at ?? ts,
+    ts,
+  ).run();
+  const target = await db.prepare(`SELECT * FROM publish_targets WHERE provider = 'github' AND github_full_name = ?`)
+    .bind(input.githubFullName).first<PublishTarget>();
+  if (!target) throw new Error("Publish target was not persisted.");
+  return target;
+}
+
+export async function createPublishJob(db: D1Database, input: {
+  targetId: string;
+  kbId?: string | null;
+  userId: string;
+  githubFullName: string;
+  githubBranch: string;
+  githubCommitSha: string;
+  githubCommitUrl: string;
+  liveUrl: string;
+  actionsUrl: string;
+  message?: string | null;
+}): Promise<PublishJob> {
+  const ts = now();
+  const job: PublishJob = {
+    id: uuid(),
+    target_id: input.targetId,
+    kb_id: input.kbId ?? null,
+    user_id: input.userId,
+    source: "api",
+    trigger: "console",
+    status: "submitted",
+    github_full_name: input.githubFullName,
+    github_branch: input.githubBranch || "main",
+    github_commit_sha: input.githubCommitSha,
+    github_commit_url: input.githubCommitUrl,
+    live_url: input.liveUrl,
+    actions_url: input.actionsUrl,
+    message: input.message ?? null,
+    created_at: ts,
+    updated_at: ts,
+    completed_at: null,
+  };
+  await db.prepare(
+    `INSERT INTO publish_jobs (
+       id, target_id, kb_id, user_id, source, trigger, status, github_full_name, github_branch,
+       github_commit_sha, github_commit_url, live_url, actions_url, message, created_at, updated_at, completed_at
+     ) VALUES (?, ?, ?, ?, 'api', 'console', 'submitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+  ).bind(
+    job.id,
+    job.target_id,
+    job.kb_id,
+    job.user_id,
+    job.github_full_name,
+    job.github_branch,
+    job.github_commit_sha,
+    job.github_commit_url,
+    job.live_url,
+    job.actions_url,
+    job.message,
+    job.created_at,
+    job.updated_at,
+  ).run();
+  return job;
 }

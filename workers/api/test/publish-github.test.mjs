@@ -74,7 +74,7 @@ function env() {
         kv.delete(key);
       },
     },
-    DB: {},
+    DB: fakeDb(),
     EDITOR_BASE_URL: "https://console.prodocstore.online",
     PUBLIC_BASE_URL: "https://prodocstore.online",
     GITHUB_ORG: "ProDocStore-online",
@@ -82,6 +82,108 @@ function env() {
     CLOUDFLARE_API_TOKEN: "cf-token",
     CLOUDFLARE_ACCOUNT_ID: "cf-account",
     PDS_KEY_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+  };
+}
+
+function fakeDb() {
+  const publishTargets = [];
+  const publishJobs = [];
+  return {
+    records: { publishTargets, publishJobs },
+    prepare(sql) {
+      return {
+        params: [],
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM publish_targets WHERE provider = 'github' AND github_full_name = ?")) {
+            return publishTargets.find((target) => target.provider === "github" && target.github_full_name === this.params[0]) ?? null;
+          }
+          throw new Error(`Unhandled D1 first: ${sql}`);
+        },
+        async run() {
+          if (sql.includes("INSERT INTO publish_targets")) {
+            const [
+              id,
+              kbId,
+              localDraftId,
+              userId,
+              mode,
+              githubOwner,
+              githubRepo,
+              githubFullName,
+              defaultBranch,
+              visibility,
+              liveUrl,
+              actionsUrl,
+              createdAt,
+              updatedAt,
+            ] = this.params;
+            const existing = publishTargets.find((target) => target.provider === "github" && target.github_full_name === githubFullName);
+            const next = {
+              id: existing?.id ?? id,
+              kb_id: kbId,
+              local_draft_id: localDraftId,
+              user_id: userId,
+              provider: "github",
+              mode,
+              github_owner: githubOwner,
+              github_repo: githubRepo,
+              github_full_name: githubFullName,
+              default_branch: defaultBranch,
+              visibility,
+              live_url: liveUrl,
+              actions_url: actionsUrl,
+              created_at: existing?.created_at ?? createdAt,
+              updated_at: updatedAt,
+            };
+            if (existing) Object.assign(existing, next);
+            else publishTargets.push(next);
+            return { success: true };
+          }
+          if (sql.includes("INSERT INTO publish_jobs")) {
+            const [
+              id,
+              targetId,
+              kbId,
+              userId,
+              githubFullName,
+              githubBranch,
+              githubCommitSha,
+              githubCommitUrl,
+              liveUrl,
+              actionsUrl,
+              message,
+              createdAt,
+              updatedAt,
+            ] = this.params;
+            publishJobs.push({
+              id,
+              target_id: targetId,
+              kb_id: kbId,
+              user_id: userId,
+              source: "api",
+              trigger: "console",
+              status: "submitted",
+              github_full_name: githubFullName,
+              github_branch: githubBranch,
+              github_commit_sha: githubCommitSha,
+              github_commit_url: githubCommitUrl,
+              live_url: liveUrl,
+              actions_url: actionsUrl,
+              message,
+              created_at: createdAt,
+              updated_at: updatedAt,
+              completed_at: null,
+            });
+            return { success: true };
+          }
+          throw new Error(`Unhandled D1 run: ${sql}`);
+        },
+      };
+    },
   };
 }
 
@@ -150,6 +252,7 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
   };
 
   const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
   try {
     const response = await app.fetch(
       new Request("https://api.prodocstore.online/api/publish/github", {
@@ -158,15 +261,27 @@ test("POST /api/publish/github creates repo, installs deploy secrets, then commi
           "Content-Type": "application/json",
           Cookie: "pds_session=s1",
         },
-        body: JSON.stringify({ form: form(), files: repoFiles() }),
+        body: JSON.stringify({ draftId: "draft-1", form: form(), files: repoFiles() }),
       }),
-      env(),
+      testEnv,
     );
     assert.equal(response.status, 200, await response.clone().text());
     const data = await response.json();
     assert.equal(data.repo.full_name, "ProDocStore-online/customer-kb");
     assert.equal(data.commit.sha, "newcommit");
     assert.equal(data.actionsUrl, "https://github.com/ProDocStore-online/customer-kb/actions");
+    assert.equal(data.publishTarget.githubFullName, "ProDocStore-online/customer-kb");
+    assert.equal(data.publishTarget.mode, "client-hosted");
+    assert.equal(data.publishJob.status, "submitted");
+    assert.equal(data.publishJob.commitSha, "newcommit");
+
+    assert.equal(testEnv.DB.records.publishTargets.length, 1);
+    assert.equal(testEnv.DB.records.publishTargets[0].local_draft_id, "draft-1");
+    assert.equal(testEnv.DB.records.publishTargets[0].github_full_name, "ProDocStore-online/customer-kb");
+    assert.equal(testEnv.DB.records.publishTargets[0].live_url, "https://customer-kb.pages.dev/");
+    assert.equal(testEnv.DB.records.publishJobs.length, 1);
+    assert.equal(testEnv.DB.records.publishJobs[0].target_id, testEnv.DB.records.publishTargets[0].id);
+    assert.equal(testEnv.DB.records.publishJobs[0].github_commit_url, "https://github.com/ProDocStore-online/customer-kb/commit/newcommit");
 
     const secretWrites = calls.filter((call) => call.method === "PUT" && call.url.includes("/actions/secrets/"));
     assert.equal(secretWrites.length, 2);
@@ -197,6 +312,7 @@ test("POST /api/publish/github rejects generated site output before GitHub calls
     return jsonResponse({});
   };
   const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
   try {
     const response = await app.fetch(
       new Request("https://api.prodocstore.online/api/publish/github", {
@@ -210,11 +326,13 @@ test("POST /api/publish/github rejects generated site output before GitHub calls
           files: [...repoFiles(), { path: "site/index.html", content: "<h1>built</h1>" }],
         }),
       }),
-      env(),
+      testEnv,
     );
     assert.equal(response.status, 400);
     assert.match(await response.text(), /Generated site output is not allowed/);
     assert.deepEqual(calls, []);
+    assert.deepEqual(testEnv.DB.records.publishTargets, []);
+    assert.deepEqual(testEnv.DB.records.publishJobs, []);
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;

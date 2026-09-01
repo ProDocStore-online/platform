@@ -6,6 +6,7 @@ import sealedbox from "tweetnacl-sealedbox-js";
 import { type Env, type Session, type Variables, type AuthProvider } from "./types";
 import { registerKbRoutes } from "./routes/kb";
 import { registerPublishRoutes } from "./routes/publish";
+import { createPublishJob, upsertPublishTarget } from "./lib/db";
 
 interface GitHubUser {
   id: number;
@@ -403,7 +404,8 @@ app.post("/api/publish/github", async (c) => {
   requireSecret(c.env.CLOUDFLARE_API_TOKEN, "CLOUDFLARE_API_TOKEN");
   requireSecret(c.env.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID");
 
-  const body: { form?: PublishFormInput; files?: RepoFileInput[] } = await c.req.json<{ form?: PublishFormInput; files?: RepoFileInput[] }>().catch(() => ({}));
+  const body: { draftId?: unknown; form?: PublishFormInput; files?: RepoFileInput[] } = await c.req.json<{ draftId?: unknown; form?: PublishFormInput; files?: RepoFileInput[] }>().catch(() => ({}));
+  const draftId = validateDraftId(body.draftId);
   const form = validatePublishBody(body.form);
   const files = validateRepoFiles(body.files);
   const tokens = githubTokens(c.env, session);
@@ -416,6 +418,31 @@ app.post("/api/publish/github", async (c) => {
   ]);
   const commit = await commitRepoFiles(published.token.value, published.repo.full_name, files);
   const liveUrl = form.customDomain ? `https://${form.customDomain}/` : `https://${form.slug}.pages.dev/`;
+  const actionsUrl = `${published.repo.html_url}/actions`;
+  const [githubOwner = form.owner, githubRepo = form.slug] = published.repo.full_name.split("/");
+  const target = await upsertPublishTarget(c.env.DB, {
+    localDraftId: draftId,
+    userId: session.user.id,
+    mode: "client-hosted",
+    githubOwner,
+    githubRepo,
+    githubFullName: published.repo.full_name,
+    defaultBranch: published.repo.default_branch || "main",
+    visibility: form.visibility,
+    liveUrl,
+    actionsUrl,
+  });
+  const publishJob = await createPublishJob(c.env.DB, {
+    targetId: target.id,
+    userId: session.user.id,
+    githubFullName: published.repo.full_name,
+    githubBranch: published.repo.default_branch || "main",
+    githubCommitSha: commit.sha,
+    githubCommitUrl: commit.html_url,
+    liveUrl,
+    actionsUrl,
+    message: "GitHub Actions deployment submitted.",
+  });
 
   return c.json({
     ok: true,
@@ -426,7 +453,19 @@ app.post("/api/publish/github", async (c) => {
     },
     commit,
     liveUrl,
-    actionsUrl: `${published.repo.html_url}/actions`,
+    actionsUrl,
+    publishTarget: {
+      id: target.id,
+      mode: target.mode,
+      provider: target.provider,
+      githubFullName: target.github_full_name,
+    },
+    publishJob: {
+      id: publishJob.id,
+      status: publishJob.status,
+      commitSha: publishJob.github_commit_sha,
+      createdAt: publishJob.created_at,
+    },
     secrets: secrets.map((result) => ({ name: result.name, status: "set", source: result.source })),
   });
 });
@@ -635,6 +674,13 @@ function validatePublishBody(input: PublishFormInput | undefined) {
   if (!prompt) throwJson(400, "Prompt is required.");
 
   return { title, slug, owner, customDomain, visibility, prompt };
+}
+
+function validateDraftId(input: unknown): string | null {
+  if (input === undefined || input === null || input === "") return null;
+  const value = stringField(input).trim();
+  if (!/^[A-Za-z0-9_.:-]{1,120}$/.test(value)) throwJson(400, "Draft id is not valid.");
+  return value;
 }
 
 function validateRepoFiles(input: RepoFileInput[] | undefined): Array<{ path: string; content: string }> {

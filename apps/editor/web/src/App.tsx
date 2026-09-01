@@ -435,7 +435,7 @@ function EditorApp() {
       setKbSteps(kbId, updateStep('repo', 'busy', 'Creating repository'))
       setKbSteps(kbId, updateStep('secrets', 'busy', 'Preparing deploy secrets'))
       setKbSteps(kbId, updateStep('files', 'busy', 'Committing files to main'))
-      const published = await app.platform.publishGitHub(form, readyFiles)
+      const published = await app.platform.publishGitHub(kbId, form, readyFiles)
       setKbSteps(kbId, updateStep('repo', 'ok', published.repo.html_url))
       setKbSteps(kbId, updateStep('secrets', 'ok', 'Repo-level deploy secrets installed'))
       setKbSteps(kbId, updateStep('files', 'ok', `${readyFiles.length} files committed atomically`))
