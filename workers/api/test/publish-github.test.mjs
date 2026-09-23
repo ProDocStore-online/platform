@@ -92,8 +92,16 @@ function fakeDb() {
   const knowledgeBases = [];
   const memberships = [];
   const pages = [];
+  const publishVersions = [];
+  const publishVersionPages = [];
+  const publishPointers = [];
   return {
-    records: { publishTargets, publishJobs, knowledgeBases, memberships, pages },
+    records: { publishTargets, publishJobs, knowledgeBases, memberships, pages, publishVersions, publishVersionPages, publishPointers },
+    async batch(statements) {
+      const out = [];
+      for (const statement of statements) out.push(await statement.run());
+      return out;
+    },
     prepare(sql) {
       return {
         params: [],
@@ -117,6 +125,22 @@ function fakeDb() {
           if (sql.includes("SELECT role FROM memberships WHERE org_id = ? AND user_id = ?")) {
             const [orgId, userId] = this.params;
             return memberships.find((membership) => membership.org_id === orgId && membership.user_id === userId) ?? null;
+          }
+          if (sql.includes("SELECT MAX(version) AS version FROM publish_versions WHERE kb_id = ?")) {
+            const versions = publishVersions.filter((v) => v.kb_id === this.params[0]).map((v) => v.version);
+            return { version: versions.length ? Math.max(...versions) : null };
+          }
+          if (sql.includes("FROM publish_pointers p JOIN publish_versions v ON v.id = p.version_id")) {
+            const pointer = publishPointers.find((p) => p.kb_id === this.params[0]);
+            return pointer ? (publishVersions.find((v) => v.id === pointer.version_id) ?? null) : null;
+          }
+          if (sql.includes("FROM publish_versions WHERE kb_id = ? AND version = ?")) {
+            const [kbId, version] = this.params;
+            return publishVersions.find((v) => v.kb_id === kbId && v.version === version) ?? null;
+          }
+          if (sql.includes("FROM publish_version_pages WHERE version_id = ? AND path = ?")) {
+            const [versionId, path] = this.params;
+            return publishVersionPages.find((p) => p.version_id === versionId && p.path === path) ?? null;
           }
           throw new Error(`Unhandled D1 first: ${sql}`);
         },
@@ -148,6 +172,28 @@ function fakeDb() {
               results: pages
                 .filter((page) => page.kb_id === kbId)
                 .map(({ content, ...page }) => page),
+            };
+          }
+          if (sql.includes("SELECT * FROM pages WHERE kb_id = ? ORDER BY path")) {
+            const [kbId] = this.params;
+            return { results: pages.filter((page) => page.kb_id === kbId).sort((a, b) => a.path.localeCompare(b.path)) };
+          }
+          if (sql.includes("SELECT path, title FROM publish_version_pages WHERE version_id = ? ORDER BY path")) {
+            const [versionId] = this.params;
+            return {
+              results: publishVersionPages
+                .filter((page) => page.version_id === versionId)
+                .sort((a, b) => a.path.localeCompare(b.path))
+                .map(({ path, title }) => ({ path, title })),
+            };
+          }
+          if (sql.includes("FROM publish_versions WHERE kb_id = ? ORDER BY version DESC LIMIT ?")) {
+            const [kbId, limit] = this.params;
+            return {
+              results: publishVersions
+                .filter((v) => v.kb_id === kbId)
+                .sort((a, b) => b.version - a.version)
+                .slice(0, limit),
             };
           }
           throw new Error(`Unhandled D1 all: ${sql}`);
@@ -268,6 +314,42 @@ function fakeDb() {
               updated_at: updatedAt,
               completed_at: completedAt,
             });
+            return { success: true };
+          }
+          if (sql.includes("UPDATE publish_jobs SET status = ?, message = ?, completed_at = ?, updated_at = ? WHERE id = ?")) {
+            const [status, message, completedAt, updatedAt, id] = this.params;
+            const job = publishJobs.find((j) => j.id === id);
+            if (job) Object.assign(job, { status, message, completed_at: completedAt, updated_at: updatedAt });
+            return { success: true };
+          }
+          if (sql.includes("INSERT INTO publish_version_pages")) {
+            const [versionId, path, title, content] = this.params;
+            publishVersionPages.push({ version_id: versionId, path, title, content });
+            return { success: true };
+          }
+          if (sql.includes("INSERT INTO publish_versions")) {
+            const [id, kbId, version, targetId, jobId, pageCount, createdBy, createdAt] = this.params;
+            if (publishVersions.some((v) => v.kb_id === kbId && v.version === version)) {
+              throw new Error("UNIQUE constraint failed: publish_versions.kb_id, publish_versions.version");
+            }
+            publishVersions.push({
+              id,
+              kb_id: kbId,
+              version,
+              target_id: targetId,
+              job_id: jobId,
+              page_count: pageCount,
+              created_by: createdBy,
+              created_at: createdAt,
+            });
+            return { success: true };
+          }
+          if (sql.includes("INSERT INTO publish_pointers")) {
+            const [kbId, versionId, version, updatedBy, updatedAt] = this.params;
+            const next = { kb_id: kbId, version_id: versionId, version, updated_by: updatedBy, updated_at: updatedAt };
+            const existing = publishPointers.find((p) => p.kb_id === kbId);
+            if (existing) Object.assign(existing, next);
+            else publishPointers.push(next);
             return { success: true };
           }
           throw new Error(`Unhandled D1 run: ${sql}`);
@@ -585,9 +667,199 @@ test("POST /api/kbs/:kbId/publish records a managed target without GitHub calls"
     assert.equal(testEnv.DB.records.publishJobs[0].source, "api");
     assert.equal(testEnv.DB.records.publishJobs[0].trigger, "console");
     assert.equal(testEnv.DB.records.publishJobs[0].completed_at, data.publishJob.completedAt);
+    assert.equal(data.version.version, 1);
+    assert.equal(testEnv.DB.records.publishVersions.length, 1);
+    assert.equal(testEnv.DB.records.publishVersions[0].job_id, data.publishJob.id);
+    assert.equal(testEnv.DB.records.publishVersions[0].target_id, data.publishTarget.id);
   } finally {
     cleanup();
     globalThis.fetch = originalFetch;
+  }
+});
+
+function seedManagedKb(testEnv, content = "# Ops KB\n") {
+  testEnv.DB.records.knowledgeBases.push({
+    id: "kb_1",
+    org_id: "org_1",
+    slug: "ops",
+    title: "Ops KB",
+    description: null,
+    visibility: "private",
+    custom_domain: null,
+    access_email_domains: "ozai.digital",
+    access_allowed_emails: "",
+    created_by: "github_1",
+    created_at: 1760000000000,
+    updated_at: 1760000001000,
+  });
+  testEnv.DB.records.memberships.push({ org_id: "org_1", user_id: "github_1", role: "editor" });
+  testEnv.DB.records.pages.push({
+    id: "page_1",
+    kb_id: "kb_1",
+    path: "docs/index.md",
+    title: "Home",
+    content,
+    updated_by: "github_1",
+    updated_at: 1760000001000,
+  });
+}
+
+function managedRequest(pathname, init = {}) {
+  return new Request(`https://api.prodocstore.online${pathname}`, {
+    ...init,
+    headers: { Cookie: "pds_session=s1", ...(init.headers ?? {}) },
+  });
+}
+
+test("POST /api/kbs/:kbId/publish snapshots pages so later draft edits are not live", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  seedManagedKb(testEnv, "# Published copy\n");
+  try {
+    const published = await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    assert.equal(published.status, 200, await published.clone().text());
+    const data = await published.json();
+    assert.equal(data.version.version, 1);
+    assert.equal(data.version.pageCount, 1);
+
+    // The artifact is a copy: the version row holds the page content, and the
+    // pointer names the version that is live.
+    assert.equal(testEnv.DB.records.publishVersionPages.length, 1);
+    assert.equal(testEnv.DB.records.publishVersionPages[0].content, "# Published copy\n");
+    assert.equal(testEnv.DB.records.publishPointers.length, 1);
+    assert.equal(testEnv.DB.records.publishPointers[0].version_id, data.version.id);
+
+    // A draft edit after publishing must not reach the live URL.
+    testEnv.DB.records.pages[0].content = "# Unpublished draft\n";
+    const rendered = await app.fetch(managedRequest("/kb/kb_1"), testEnv);
+    assert.equal(rendered.status, 200);
+    const html = await rendered.text();
+    assert.ok(html.includes("Published copy"), html);
+    assert.ok(!html.includes("Unpublished draft"), html);
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/kbs/:kbId/rollback moves the pointer back without rewriting artifacts", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  seedManagedKb(testEnv, "# Version one\n");
+  try {
+    await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    testEnv.DB.records.pages[0].content = "# Version two\n";
+    const second = await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    assert.equal((await second.json()).version.version, 2);
+
+    const live = await app.fetch(managedRequest("/kb/kb_1"), testEnv);
+    assert.ok((await live.text()).includes("Version two"));
+
+    const rolledBack = await app.fetch(
+      managedRequest("/api/kbs/kb_1/rollback", { method: "POST", body: JSON.stringify({ version: 1 }) }),
+      testEnv,
+    );
+    assert.equal(rolledBack.status, 200, await rolledBack.clone().text());
+    assert.equal((await rolledBack.json()).version.version, 1);
+
+    // Rollback is a pointer change only — both artifacts survive it.
+    assert.equal(testEnv.DB.records.publishVersions.length, 2);
+    assert.equal(testEnv.DB.records.publishVersionPages.length, 2);
+    assert.equal(testEnv.DB.records.publishPointers.length, 1);
+    assert.equal(testEnv.DB.records.publishPointers[0].version, 1);
+
+    const afterRollback = await app.fetch(managedRequest("/kb/kb_1"), testEnv);
+    const html = await afterRollback.text();
+    assert.ok(html.includes("Version one"), html);
+    assert.ok(!html.includes("Version two"), html);
+
+    // Rolling forward again is the same call with the higher version.
+    const rolledForward = await app.fetch(
+      managedRequest("/api/kbs/kb_1/rollback", { method: "POST", body: JSON.stringify({ version: 2 }) }),
+      testEnv,
+    );
+    assert.equal(rolledForward.status, 200);
+    assert.ok((await (await app.fetch(managedRequest("/kb/kb_1"), testEnv)).text()).includes("Version two"));
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/kbs/:kbId/rollback rejects versions the KB does not have", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  seedManagedKb(testEnv);
+  try {
+    await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    const missing = await app.fetch(
+      managedRequest("/api/kbs/kb_1/rollback", { method: "POST", body: JSON.stringify({ version: 9 }) }),
+      testEnv,
+    );
+    assert.equal(missing.status, 404);
+    assert.match((await missing.json()).error, /does not exist/);
+
+    const invalid = await app.fetch(
+      managedRequest("/api/kbs/kb_1/rollback", { method: "POST", body: JSON.stringify({ version: 0 }) }),
+      testEnv,
+    );
+    assert.equal(invalid.status, 400);
+
+    // Neither rejection disturbed the live pointer.
+    assert.equal(testEnv.DB.records.publishPointers[0].version, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test("POST /api/kbs/:kbId/publish returns 409 and fails the job when a concurrent publish wins the version", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  seedManagedKb(testEnv, "# First\n");
+  try {
+    await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+
+    // Simulate the race: this request read MAX(version) before the other publish
+    // committed, so it tries to insert a version number that now exists.
+    const prepare = testEnv.DB.prepare.bind(testEnv.DB);
+    testEnv.DB.prepare = (sql) => {
+      const statement = prepare(sql);
+      if (sql.includes("SELECT MAX(version) AS version FROM publish_versions")) statement.first = async () => ({ version: null });
+      return statement;
+    };
+    testEnv.DB.records.pages[0].content = "# Loser\n";
+    const raced = await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    assert.equal(raced.status, 409, await raced.clone().text());
+
+    const jobs = testEnv.DB.records.publishJobs;
+    assert.equal(jobs.length, 2);
+    assert.equal(jobs[0].status, "completed");
+    assert.equal(jobs[1].status, "failed");
+    assert.ok(jobs[1].completed_at);
+    // The winner stays live.
+    assert.equal(testEnv.DB.records.publishVersions.length, 1);
+    assert.equal(testEnv.DB.records.publishPointers[0].version, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test("GET /api/kbs/:kbId/versions lists versions newest first and flags the live one", async () => {
+  const { app, cleanup } = loadWorkerApp();
+  const testEnv = env();
+  seedManagedKb(testEnv);
+  try {
+    await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    await app.fetch(managedRequest("/api/kbs/kb_1/publish", { method: "POST" }), testEnv);
+    await app.fetch(managedRequest("/api/kbs/kb_1/rollback", { method: "POST", body: JSON.stringify({ version: 1 }) }), testEnv);
+
+    const response = await app.fetch(managedRequest("/api/kbs/kb_1/versions"), testEnv);
+    assert.equal(response.status, 200, await response.clone().text());
+    const data = await response.json();
+    assert.equal(data.liveVersion, 1);
+    assert.deepEqual(data.versions.map((v) => v.version), [2, 1]);
+    assert.deepEqual(data.versions.map((v) => v.live), [false, true]);
+    assert.equal(data.versions[0].pageCount, 1);
+  } finally {
+    cleanup();
   }
 });
 

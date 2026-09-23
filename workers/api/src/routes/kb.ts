@@ -23,6 +23,12 @@ import {
   updateKbAccess,
   upsertManagedPublishTarget,
   createPublishJob,
+  createPublishVersion,
+  isPublishVersionConflict,
+  finishPublishJob,
+  listPublishVersions,
+  getLivePublishVersion,
+  setPublishPointer,
 } from "../lib/db";
 import { accessLabel, canViewKb, normalizeAccessList, normalizeDomains } from "../lib/access";
 
@@ -174,29 +180,53 @@ export function registerKbRoutes(app: App): void {
       visibility: kb.visibility,
       liveUrl,
     });
-    const completedAt = Date.now();
+    // The job starts as submitted and only becomes completed once the snapshot
+    // and pointer move have landed, so a failed publish never reads as done.
     const publishJob = await createPublishJob(c.env.DB, {
       targetId: target.id,
       kbId: kb.id,
       userId: session.user.id,
       source: "api",
       trigger: "console",
-      status: "completed",
+      status: "submitted",
       githubFullName: target.github_full_name,
       githubBranch: target.default_branch,
-      githubCommitSha: String(kb.updated_at || completedAt),
+      githubCommitSha: String(kb.updated_at || Date.now()),
       githubCommitUrl: liveUrl,
       liveUrl,
       actionsUrl: "",
-      message: "Managed KB published.",
-      completedAt,
+      message: "Managed KB publish started.",
     });
+    // Snapshot the pages as an immutable version and repoint the KB at it. Until
+    // this lands, the previously published version stays live.
+    let version;
+    try {
+      version = await createPublishVersion(c.env.DB, {
+        kbId: kb.id,
+        targetId: target.id,
+        jobId: publishJob.id,
+        userId: session.user.id,
+      });
+    } catch (err) {
+      const conflict = isPublishVersionConflict(err);
+      await finishPublishJob(c.env.DB, {
+        jobId: publishJob.id,
+        status: "failed",
+        message: conflict ? "Another publish of this KB landed first." : "Managed KB snapshot failed.",
+        completedAt: Date.now(),
+      });
+      if (conflict) return c.json({ error: "another publish of this knowledge base is in progress; retry" }, 409);
+      throw err;
+    }
+    const completedAt = Date.now();
+    await finishPublishJob(c.env.DB, { jobId: publishJob.id, status: "completed", message: "Managed KB published.", completedAt });
 
     return c.json({
       ok: true,
       mode: "managed",
       liveUrl,
       pageCount: pages.length,
+      version: { id: version.id, version: version.version, pageCount: version.page_count, createdAt: version.created_at },
       publishTarget: {
         id: target.id,
         mode: target.mode,
@@ -205,10 +235,51 @@ export function registerKbRoutes(app: App): void {
       },
       publishJob: {
         id: publishJob.id,
-        status: publishJob.status,
+        status: "completed",
         createdAt: publishJob.created_at,
-        completedAt: publishJob.completed_at,
+        completedAt,
       },
+    });
+  });
+
+  app.get("/api/kbs/:kbId/versions", async (c) => {
+    const session = await authed(c);
+    const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!canViewKb(kb, role, session)) return c.json({ error: "not found" }, 404);
+    const [versions, live] = await Promise.all([
+      listPublishVersions(c.env.DB, kb.id, Number(c.req.query("limit")) || undefined),
+      getLivePublishVersion(c.env.DB, kb.id),
+    ]);
+    return c.json({
+      liveVersion: live?.version ?? null,
+      versions: versions.map((v) => ({
+        id: v.id,
+        version: v.version,
+        pageCount: v.page_count,
+        createdBy: v.created_by,
+        createdAt: v.created_at,
+        live: v.id === live?.id,
+      })),
+    });
+  });
+
+  // Rollback is a pointer move only — no artifact is copied, rewritten, or deleted,
+  // so rolling forward again is the same call with a higher version number.
+  app.post("/api/kbs/:kbId/rollback", async (c) => {
+    const session = await authed(c);
+    const { kb, role } = await kbAccess(c.env, c.req.param("kbId"), session.user.id);
+    if (!kb) return c.json({ error: "not found" }, 404);
+    if (!roleAtLeast(role, "editor")) return c.json({ error: "editor role required" }, 403);
+    const body = await readBody<{ version?: number }>(c);
+    const version = Number(body.version);
+    if (!Number.isInteger(version) || version < 1) return c.json({ error: "version must be a positive integer" }, 400);
+    const pinned = await setPublishPointer(c.env.DB, { kbId: kb.id, version, userId: session.user.id });
+    if (!pinned) return c.json({ error: "that version does not exist for this knowledge base" }, 404);
+    return c.json({
+      ok: true,
+      liveUrl: new URL(`/kb/${kb.id}`, c.req.url).toString(),
+      version: { id: pinned.id, version: pinned.version, pageCount: pinned.page_count, createdAt: pinned.created_at },
     });
   });
 

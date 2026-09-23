@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { marked } from "marked";
 import { type Env, type Variables } from "../types";
-import { getKb, getRole, getPage, listPages } from "../lib/db";
+import { getKb, getRole, getPage, listPages, getLivePublishVersion, listPublishVersionPages, getPublishVersionPage } from "../lib/db";
 import { canViewKb } from "../lib/access";
 
 type App = Hono<{ Bindings: Env; Variables: Variables }>;
@@ -51,12 +51,20 @@ export function registerPublishRoutes(app: App): void {
     const role = await getRole(c.env.DB, kb.org_id, session.user.id);
     if (!canViewKb(kb, role, session)) return c.html("<h1>You don't have access to this knowledge base.</h1>", 403);
 
-    const pages = await listPages(c.env.DB, kb.id);
+    // Serve the published artifact, not the mutable draft state in `pages`. A KB
+    // that has never been published has no pointer, so it falls back to the draft
+    // so editors can still see what they are about to publish.
+    const live = await getLivePublishVersion(c.env.DB, kb.id);
+    const pages = live
+      ? await listPublishVersionPages(c.env.DB, live.id)
+      : await listPages(c.env.DB, kb.id);
     const nav = pages.length
       ? pages.map((p) => `<a class="${p.path === path ? "active" : ""}" href="/kb/${kb.id}/view/${p.path}">${escapeHtml(p.title || p.path)}</a>`).join("")
       : `<p style="opacity:.6;font-size:13px">No pages yet.</p>`;
 
-    const page = await getPage(c.env.DB, kb.id, path);
+    const page = live
+      ? await getPublishVersionPage(c.env.DB, live.id, path)
+      : await getPage(c.env.DB, kb.id, path);
     const body = page
       ? (marked.parse(page.content, { async: false }) as string)
       : `<h1>${escapeHtml(kb.title)}</h1><p style="opacity:.7">This page doesn't exist yet. Create it in the console.</p>`;
