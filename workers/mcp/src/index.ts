@@ -6,6 +6,7 @@ import { AuthHandler } from "./auth-handler.js";
 import {
   findKnowledgeBase,
   getDeployStatus,
+  GitHubError,
   listRepoFiles,
   readRegistry,
   readRepoFile,
@@ -88,6 +89,16 @@ function slugify(input: string): string {
 
 function repoFromInput(env: Env, kbOrRepo: string): string {
   return kbOrRepo.includes("/") ? kbOrRepo : `${env.GITHUB_ORG}/${kbOrRepo}`;
+}
+
+/** Lists repo files, turning a GitHub failure into an MCP error result instead of an empty list. */
+async function listRepoFilesOrError(fullRepo: string, branch: string) {
+  try {
+    return await listRepoFiles(fullRepo, branch);
+  } catch (err) {
+    if (!(err instanceof GitHubError)) throw err;
+    return { ...txt(`Could not read ${fullRepo} on ${branch}: ${err.message}`), isError: true as const };
+  }
 }
 
 function renderKb(kb: KnowledgeBase): string {
@@ -637,8 +648,9 @@ Recommended first flow:
       },
       async ({ repo, branch }) => {
         const fullRepo = repoFromInput(this.env, repo);
-        const files = await listRepoFiles(fullRepo, branch ?? "main");
-        if (files.length === 0) return txt(`Could not read ${fullRepo}, or it has no files on ${branch ?? "main"}.`);
+        const files = await listRepoFilesOrError(fullRepo, branch ?? "main");
+        if ("isError" in files) return files;
+        if (files.length === 0) return txt(`${fullRepo} has no files on ${branch ?? "main"}.`);
         const paths = new Set(files.map((f) => f.path));
         const markdown = files.filter((f) => f.path.startsWith("docs/") && f.path.endsWith(".md")).map((f) => f.path);
         const checks = [
@@ -669,7 +681,8 @@ Recommended first flow:
       },
       async ({ repo, branch }) => {
         const fullRepo = repoFromInput(this.env, repo);
-        const files = await listRepoFiles(fullRepo, branch ?? "main");
+        const files = await listRepoFilesOrError(fullRepo, branch ?? "main");
+        if ("isError" in files) return files;
         if (files.length === 0) return txt(`No files found for ${fullRepo}.`);
         return txt(`Files in ${fullRepo}:\n\n${files.map((f) => `- ${f.path}`).join("\n")}`);
       },
