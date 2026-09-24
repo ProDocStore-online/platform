@@ -368,6 +368,12 @@ export async function createPublishJob(db: D1Database, input: {
   return job;
 }
 
+/** Move a job to its terminal state once the work it records has actually happened (or failed). */
+export async function finishPublishJob(db: D1Database, input: { jobId: string; status: "completed" | "failed"; message: string; completedAt: number }): Promise<void> {
+  await db.prepare(`UPDATE publish_jobs SET status = ?, message = ?, completed_at = ?, updated_at = ? WHERE id = ?`)
+    .bind(input.status, input.message, input.completedAt, input.completedAt, input.jobId).run();
+}
+
 export async function listPublishJobsForDraft(db: D1Database, input: { userId: string; localDraftId: string; limit?: number }): Promise<Array<PublishJob & { target_mode: string; target_provider: string }>> {
   const limit = Math.min(Math.max(input.limit ?? 10, 1), 50);
   const { results } = await db.prepare(
@@ -384,4 +390,119 @@ export async function listPublishJobsForDraft(db: D1Database, input: { userId: s
 export async function getPublishTargetByGitHubRepo(db: D1Database, githubFullName: string): Promise<PublishTarget | null> {
   return db.prepare(`SELECT * FROM publish_targets WHERE provider = 'github' AND lower(github_full_name) = lower(?)`)
     .bind(githubFullName).first<PublishTarget>();
+}
+
+// — Managed publish artifacts —
+// A managed publish snapshots the KB's pages into an immutable `publish_versions`
+// row and moves the KB's pointer at it. The live renderer reads the pointed-at
+// version, never `pages`, so draft edits are not live until the next publish and
+// rollback is a pointer change rather than a content rewrite.
+
+export interface PublishVersion {
+  id: string;
+  kb_id: string;
+  version: number;
+  target_id: string | null;
+  job_id: string | null;
+  page_count: number;
+  created_by: string;
+  created_at: number;
+}
+export interface PublishVersionPage { version_id: string; path: string; title: string | null; content: string }
+
+async function listPagesWithContent(db: D1Database, kbId: string): Promise<Page[]> {
+  const { results } = await db.prepare(`SELECT * FROM pages WHERE kb_id = ? ORDER BY path`).bind(kbId).all<Page>();
+  return results ?? [];
+}
+
+/**
+ * Snapshot every page of a KB as the next version and point the KB at it.
+ * The snapshot rows and the pointer move go in one D1 batch, so a half-written
+ * version is never servable. Two concurrent publishes race on the version
+ * number; UNIQUE (kb_id, version) makes the loser fail rather than overwrite.
+ */
+/** True when a D1 error is the UNIQUE (kb_id, version) race between two concurrent publishes. */
+export function isPublishVersionConflict(err: unknown): boolean {
+  return err instanceof Error && /UNIQUE constraint failed: publish_versions\./.test(err.message);
+}
+
+export async function createPublishVersion(db: D1Database, input: {
+  kbId: string;
+  targetId?: string | null;
+  jobId?: string | null;
+  userId: string;
+}): Promise<PublishVersion> {
+  const pages = await listPagesWithContent(db, input.kbId);
+  const highest = await db.prepare(`SELECT MAX(version) AS version FROM publish_versions WHERE kb_id = ?`)
+    .bind(input.kbId).first<{ version: number | null }>();
+  const ts = now();
+  const version: PublishVersion = {
+    id: uuid(),
+    kb_id: input.kbId,
+    version: (highest?.version ?? 0) + 1,
+    target_id: input.targetId ?? null,
+    job_id: input.jobId ?? null,
+    page_count: pages.length,
+    created_by: input.userId,
+    created_at: ts,
+  };
+  await db.batch([
+    db.prepare(
+      `INSERT INTO publish_versions (id, kb_id, version, target_id, job_id, page_count, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(version.id, version.kb_id, version.version, version.target_id, version.job_id, version.page_count, version.created_by, version.created_at),
+    ...pages.map((p) =>
+      db.prepare(`INSERT INTO publish_version_pages (version_id, path, title, content) VALUES (?, ?, ?, ?)`)
+        .bind(version.id, p.path, p.title, p.content),
+    ),
+    pointerStatement(db, { kbId: input.kbId, versionId: version.id, version: version.version, userId: input.userId, ts }),
+  ]);
+  return version;
+}
+
+function pointerStatement(db: D1Database, input: { kbId: string; versionId: string; version: number; userId: string; ts: number }): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO publish_pointers (kb_id, version_id, version, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(kb_id) DO UPDATE SET
+       version_id = excluded.version_id,
+       version = excluded.version,
+       updated_by = excluded.updated_by,
+       updated_at = excluded.updated_at`,
+  ).bind(input.kbId, input.versionId, input.version, input.userId, input.ts);
+}
+
+/** Rollback (or roll forward): repoint a KB at an existing version. Null if that version doesn't exist. */
+export async function setPublishPointer(db: D1Database, input: { kbId: string; version: number; userId: string }): Promise<PublishVersion | null> {
+  const target = await getPublishVersion(db, input.kbId, input.version);
+  if (!target) return null;
+  await pointerStatement(db, { kbId: input.kbId, versionId: target.id, version: target.version, userId: input.userId, ts: now() }).run();
+  return target;
+}
+
+export async function getLivePublishVersion(db: D1Database, kbId: string): Promise<PublishVersion | null> {
+  return db.prepare(
+    `SELECT v.* FROM publish_pointers p JOIN publish_versions v ON v.id = p.version_id WHERE p.kb_id = ?`,
+  ).bind(kbId).first<PublishVersion>();
+}
+
+export async function getPublishVersion(db: D1Database, kbId: string, version: number): Promise<PublishVersion | null> {
+  return db.prepare(`SELECT * FROM publish_versions WHERE kb_id = ? AND version = ?`).bind(kbId, version).first<PublishVersion>();
+}
+
+export async function listPublishVersions(db: D1Database, kbId: string, limit = 20): Promise<PublishVersion[]> {
+  const capped = Math.min(Math.max(limit, 1), 100);
+  const { results } = await db.prepare(`SELECT * FROM publish_versions WHERE kb_id = ? ORDER BY version DESC LIMIT ?`)
+    .bind(kbId, capped).all<PublishVersion>();
+  return results ?? [];
+}
+
+export async function listPublishVersionPages(db: D1Database, versionId: string): Promise<Array<Omit<PublishVersionPage, "content" | "version_id">>> {
+  const { results } = await db.prepare(`SELECT path, title FROM publish_version_pages WHERE version_id = ? ORDER BY path`)
+    .bind(versionId).all<Omit<PublishVersionPage, "content" | "version_id">>();
+  return results ?? [];
+}
+
+export async function getPublishVersionPage(db: D1Database, versionId: string, path: string): Promise<PublishVersionPage | null> {
+  return db.prepare(`SELECT * FROM publish_version_pages WHERE version_id = ? AND path = ?`)
+    .bind(versionId, path).first<PublishVersionPage>();
 }
