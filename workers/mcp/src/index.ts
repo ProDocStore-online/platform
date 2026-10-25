@@ -1,4 +1,5 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
+import { MCP_ACCESS_TOKEN_TTL_SECONDS } from "./oauth-config.js";
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -845,7 +846,7 @@ const oauthProvider = new OAuthProvider({
   tokenEndpoint: "/token",
   clientRegistrationEndpoint: "/register",
   scopesSupported: ["read", "write"],
-  accessTokenTTL: 86_400,
+  accessTokenTTL: MCP_ACCESS_TOKEN_TTL_SECONDS,
 });
 
 /**

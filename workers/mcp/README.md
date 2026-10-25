@@ -163,7 +163,7 @@ step 3; if the workspace already holds drafts it will ask for
 `confirm="create_sample_knowledge_base"`. A successful create appears in the
 console at <https://console.prodocstore.online> as the active KB.
 
-Reconnect behaviour: tokens last 24h (`accessTokenTTL`), and a client
+Reconnect behaviour: tokens last 30 days (`accessTokenTTL`), and a client
 reconnecting after expiry re-runs the GitHub round trip. Scopes are re-evaluated
 at that point — a token minted before the fail-closed change carried `write`
 implicitly and will come back read-only.
